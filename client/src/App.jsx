@@ -29,6 +29,48 @@ export default function App() {
   const [newType, setNewType] = useState("focus");
   const [newXp, setNewXp] = useState(25);
   const [newGold, setNewGold] = useState(5);
+  const [authUser, setAuthUser] = useState("");
+  const [authPin, setAuthPin] = useState("");
+
+  async function login(username, pin) {
+    setError("");
+    const res = await fetch(`${API}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, pin }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.message || "Login failed");
+      return;
+    }
+    localStorage.setItem(TOKEN_KEY, data.token);
+    await load();
+  }
+
+  async function register(username, pin) {
+    setError("");
+    const res = await fetch(`${API}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, pin }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.message || "Register failed");
+      return;
+    }
+    localStorage.setItem(TOKEN_KEY, data.token);
+    await load();
+  }
+
+  function logout() {
+    localStorage.removeItem(TOKEN_KEY);
+    setPlayer(null);
+    setDay(null);
+    setQuests([]);
+    setReward(null);
+  }
 
   async function load() {
     setError("");
@@ -79,7 +121,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    load();
+    if (getToken()) load();
   }, []);
 
   return (
@@ -92,6 +134,43 @@ export default function App() {
           </div>
 
           {day ? <div className="pill">Day: {day.dayKey}</div> : <div className="pill">Day not started</div>}
+        </div>
+
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h2>ACCOUNT</h2>
+
+          <div className="formRow">
+            <input
+              className="input"
+              placeholder="username"
+              value={authUser}
+              onChange={(e) => setAuthUser(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <input
+              className="input"
+              placeholder="4 digit pin"
+              value={authPin}
+              onChange={(e) => setAuthPin(e.target.value)}
+              style={{ width: 140 }}
+            />
+
+            <button className="btn" onClick={() => login(authUser, authPin)}>
+              Login
+            </button>
+
+            <button className="btn" onClick={() => register(authUser, authPin)}>
+              Register
+            </button>
+
+            <button className="btn" onClick={logout}>
+              Logout
+            </button>
+          </div>
+
+          <div className="subtle" style={{ marginTop: 8 }}>
+            Token is saved in localStorage as <code>solo_token</code>.
+          </div>
         </div>
 
         <div className="grid">
