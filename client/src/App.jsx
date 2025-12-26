@@ -4,6 +4,21 @@ import { useEffect, useState } from "react";
 
 const API = "http://localhost:5050";
 
+const TOKEN_KEY = "solo_token";
+
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+async function apiFetch(path, options = {}) {
+  const token = getToken();
+  const headers = {
+    ...(options.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  return fetch(`${API}${path}`, { ...options, headers });
+}
+
 export default function App() {
   const [player, setPlayer] = useState(null);
   const [day, setDay] = useState(null);
@@ -18,8 +33,8 @@ export default function App() {
   async function load() {
     setError("");
     const [pRes, dRes] = await Promise.all([
-      fetch(`${API}/player`),
-      fetch(`${API}/day`),
+      apiFetch("/player"),
+      apiFetch("/day"),
     ]);
 
     setPlayer(await pRes.json());
@@ -30,7 +45,7 @@ export default function App() {
 
   async function startDay() {
     setError("");
-    const res = await fetch(`${API}/day/start`, { method: "POST" });
+    const res = await apiFetch("/day/start", { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
       setError(data.message || "Could not start day");
@@ -43,7 +58,7 @@ export default function App() {
     setError("");
     setReward(null);
 
-    const res = await fetch(`${API}/quests/${id}/complete`, { method: "POST" });
+    const res = await apiFetch(`/quests/${id}/complete`, { method: "POST" });
     const data = await res.json();
 
     if (!res.ok) {
@@ -154,7 +169,7 @@ export default function App() {
                           disabled={player.statPoints <= 0}
                           onClick={async () => {
                             setError("");
-                            const res = await fetch(`${API}/stats/allocate`, {
+                            const res = await apiFetch("/stats/allocate", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ stat: s, points: 1 }),
@@ -229,7 +244,7 @@ export default function App() {
                   disabled={!day}
                   onClick={async () => {
                     setError("");
-                    const res = await fetch(`${API}/quests`, {
+                    const res = await apiFetch("/quests", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
@@ -267,7 +282,7 @@ export default function App() {
                 <div className="subtle">No quests yet. Start your day.</div>
               ) : (
                 quests.map((q) => (
-                  <div key={q.id} className="quest">
+                  <div key={q._id || q.id} className="quest">
                     <div>
                       <div className="questTitle">{q.title}</div>
                       <div className="questMeta">
@@ -278,7 +293,7 @@ export default function App() {
                     {q.completed ? (
                       <div style={{ opacity: 0.9 }}>✅</div>
                     ) : (
-                      <button className="btn" onClick={() => completeQuest(q.id)}>
+                      <button className="btn" onClick={() => completeQuest(q._id || q.id)}>
                         Complete
                       </button>
                     )}
