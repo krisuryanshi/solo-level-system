@@ -1,9 +1,21 @@
 import express from "express";
 import cors from "cors";
+import mongoose from "mongoose";
+import "dotenv/config";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+async function connectDB() {
+    try {
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log("✅ MongoDB connected");
+    } catch (err) {
+        console.error("❌ MongoDB connection error:", err.message);
+        process.exit(1);
+    }
+}
 
 // ---- SYSTEM STATE (in-memory for v1) ----
 const player = {
@@ -205,5 +217,9 @@ app.post("/stats/allocate", (req, res) => {
     res.json({ ok: true, player });
 });
 
-const PORT = 5050;
-app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+const PORT = process.env.PORT || 5050;
+
+connectDB().then(() => {
+    app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+});
+
