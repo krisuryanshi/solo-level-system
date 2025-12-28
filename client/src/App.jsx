@@ -147,24 +147,18 @@ export default function App() {
         <div className="card" style={{ marginBottom: 16 }}>
           <h2>ACCOUNT</h2>
 
-          <div className="subtle" style={{ marginBottom: 10 }}>
-            {signedInAs ? `Signed in as ${signedInAs}` : "Not signed in"}
-          </div>
-
-          <div className="formRow">
+          <div className="authRow">
             <input
               className="input"
               placeholder="username"
               value={authUser}
               onChange={(e) => setAuthUser(e.target.value)}
-              style={{ flex: 1 }}
             />
             <input
               className="input"
               placeholder="4 digit pin"
               value={authPin}
               onChange={(e) => setAuthPin(e.target.value)}
-              style={{ width: 140 }}
             />
 
             <button className="btn" onClick={() => login(authUser, authPin)}>
