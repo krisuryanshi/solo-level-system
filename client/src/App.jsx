@@ -88,10 +88,12 @@ export default function App() {
 
   async function load() {
     setError("");
-    const [pRes, dRes] = await Promise.all([
-      apiFetch("/player"),
-      apiFetch("/day"),
-    ]);
+    const [pRes, dRes] = await Promise.all([apiFetch("/player"), apiFetch("/day")]);
+
+    if (pRes.status === 401 || dRes.status === 401) {
+      logout();
+      return;
+    }
 
     setPlayer(await pRes.json());
     const d = await dRes.json();

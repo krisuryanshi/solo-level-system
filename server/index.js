@@ -111,6 +111,20 @@ function isValidPin(pin) {
     return /^[0-9]{4}$/.test(s);
 }
 
+function ensureToday(user) {
+    const today = makeDayKey();
+
+    // If no day started, nothing to do
+    if (!user.activeDay?.dayKey) return;
+
+    // If it's still today, nothing to do
+    if (user.activeDay.dayKey === today) return;
+
+    // Otherwise, it's a new day -> reset
+    user.activeDay = null;
+    user.quests = [];
+}
+
 // ---------- routes ----------
 app.get("/health", (req, res) => {
     res.json({ ok: true, message: "server is running" });
@@ -194,12 +208,27 @@ app.post("/auth/login", async (req, res) => {
 app.get("/player", auth, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(401).json({ ok: false, message: "User not found" });
+
+    const before = user.activeDay?.dayKey || null;
+    ensureToday(user);
+    const after = user.activeDay?.dayKey || null;
+    if (before !== after) await user.save();
+
     res.json(user.player);
 });
 
 app.get("/day", auth, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(401).json({ ok: false, message: "User not found" });
+
+    const before = user.activeDay?.dayKey || null;
+
+    ensureToday(user);
+
+    const after = user.activeDay?.dayKey || null;
+    if (before !== after) {
+        await user.save();
+    }
 
     res.json({
         activeDay: user.activeDay?.dayKey ? user.activeDay : null,
@@ -212,6 +241,7 @@ app.post("/day/start", auth, async (req, res) => {
     if (!user) return res.status(401).json({ ok: false, message: "User not found" });
 
     const dayKey = makeDayKey();
+    ensureToday(user);
 
     if (user.activeDay?.dayKey === dayKey) {
         return res.json({ ok: true, message: "Day already started", activeDay: user.activeDay, quests: user.quests });
