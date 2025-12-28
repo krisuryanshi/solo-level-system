@@ -31,15 +31,15 @@ export default function App() {
   const [newXp, setNewXp] = useState(25);
   const [newGold, setNewGold] = useState(5);
   const [authUser, setAuthUser] = useState("");
-  const [authPin, setAuthPin] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
   const [signedInAs, setSignedInAs] = useState("");
 
-  async function login(username, pin) {
+  async function login(username, password) {
     setError("");
     const res = await fetch(`${API}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, pin }),
+      body: JSON.stringify({ username, password }),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) {
@@ -55,12 +55,12 @@ export default function App() {
     await load();
   }
 
-  async function register(username, pin) {
+  async function register(username, password) {
     setError("");
     const res = await fetch(`${API}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, pin }),
+      body: JSON.stringify({ username, password }),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) {
@@ -171,16 +171,17 @@ export default function App() {
             />
             <input
               className="input"
-              placeholder="4 digit pin"
-              value={authPin}
-              onChange={(e) => setAuthPin(e.target.value)}
+              placeholder="password"
+              type="password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
             />
 
-            <button className="btn" onClick={() => login(authUser, authPin)}>
+            <button className="btn" onClick={() => login(authUser, authPassword)}>
               Login
             </button>
 
-            <button className="btn" onClick={() => register(authUser, authPin)}>
+            <button className="btn" onClick={() => register(authUser, authPassword)}>
               Register
             </button>
 

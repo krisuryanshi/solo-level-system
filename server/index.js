@@ -91,24 +91,21 @@ function makeSalt() {
     return crypto.randomBytes(16).toString("hex");
 }
 
-function hashPin(pin, salt) {
-    // pin should be treated as a string
-    const pinStr = String(pin);
-
-    // sha256(pin + salt) -> hex
+function hashPassword(password, salt) {
+    const pw = String(password);
     return crypto
         .createHash("sha256")
-        .update(pinStr + salt)
+        .update(pw + salt)
         .digest("hex");
+}
+
+function isValidPassword(password) {
+    const pw = String(password);
+    return pw.length >= 8; // simple rule for now
 }
 
 function isValidUsername(u) {
     return typeof u === "string" && /^[a-zA-Z0-9_]{3,20}$/.test(u.trim());
-}
-
-function isValidPin(pin) {
-    const s = String(pin);
-    return /^[0-9]{4}$/.test(s);
 }
 
 function ensureToday(user) {
@@ -133,13 +130,20 @@ app.get("/health", (req, res) => {
 // ---- AUTH ----
 app.post("/auth/register", async (req, res) => {
     try {
-        const { username, pin } = req.body;
+        const { username, password } = req.body;
 
         if (!isValidUsername(username)) {
-            return res.status(400).json({ ok: false, message: "Username must be 3–20 chars (letters, numbers, underscore)" });
+            return res.status(400).json({
+                ok: false,
+                message: "Username must be 3–20 chars (letters, numbers, underscore)",
+            });
         }
-        if (!isValidPin(pin)) {
-            return res.status(400).json({ ok: false, message: "PIN must be exactly 4 digits" });
+
+        if (!isValidPassword(password)) {
+            return res.status(400).json({
+                ok: false,
+                message: "Password must be at least 8 characters",
+            });
         }
 
         const uname = username.trim().toLowerCase();
@@ -150,12 +154,12 @@ app.post("/auth/register", async (req, res) => {
         }
 
         const salt = makeSalt();
-        const pinHash = hashPin(pin, salt);
+        const passwordHash = hashPassword(password, salt);
 
         const user = await User.create({
             username: uname,
-            pinHash,
-            pinSalt: salt,
+            passwordHash,
+            passwordSalt: salt,
             // player/quests fields auto default
         });
 
@@ -174,21 +178,21 @@ app.post("/auth/register", async (req, res) => {
 
 app.post("/auth/login", async (req, res) => {
     try {
-        const { username, pin } = req.body;
+        const { username, password } = req.body;
 
-        if (!isValidUsername(username) || !isValidPin(pin)) {
-            return res.status(400).json({ ok: false, message: "Invalid username or PIN" });
+        if (!isValidUsername(username) || !isValidPassword(password)) {
+            return res.status(400).json({ ok: false, message: "Invalid username or password" });
         }
 
         const uname = username.trim().toLowerCase();
         const user = await User.findOne({ username: uname });
         if (!user) {
-            return res.status(400).json({ ok: false, message: "Invalid username or PIN" });
+            return res.status(400).json({ ok: false, message: "Invalid username or password" });
         }
 
-        const attempt = hashPin(pin, user.pinSalt);
-        if (attempt !== user.pinHash) {
-            return res.status(400).json({ ok: false, message: "Invalid username or PIN" });
+        const attempt = hashPassword(password, user.passwordSalt);
+        if (attempt !== user.passwordHash) {
+            return res.status(400).json({ ok: false, message: "Invalid username or password" });
         }
 
         const token = jwt.sign(
