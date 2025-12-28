@@ -44,6 +44,7 @@ export default function App() {
     const data = await res.json();
     if (!res.ok || !data.ok) {
       setError(data.message || "Login failed");
+      setAuthPassword("");
       return;
     }
     localStorage.setItem(TOKEN_KEY, data.token);
@@ -51,6 +52,9 @@ export default function App() {
     const uname = (data.username || username || "").toLowerCase();
     localStorage.setItem(USER_KEY, uname);
     setSignedInAs(uname);
+
+    setAuthUser("");
+    setAuthPassword("");
 
     await load();
   }
@@ -65,6 +69,7 @@ export default function App() {
     const data = await res.json();
     if (!res.ok || !data.ok) {
       setError(data.message || "Register failed");
+      setAuthPassword("");
       return;
     }
     localStorage.setItem(TOKEN_KEY, data.token);
@@ -73,6 +78,9 @@ export default function App() {
     localStorage.setItem(USER_KEY, uname);
     setSignedInAs(uname);
 
+    setAuthUser("");
+    setAuthPassword("");
+
     await load();
   }
 
@@ -80,6 +88,10 @@ export default function App() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setSignedInAs("");
+
+    setAuthUser("");
+    setAuthPassword("");
+
     setPlayer(null);
     setDay(null);
     setQuests([]);
