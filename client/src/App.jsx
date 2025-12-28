@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 const API = "http://localhost:5050";
 
 const TOKEN_KEY = "solo_token";
+const USER_KEY = "solo_username";
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -46,7 +47,11 @@ export default function App() {
       return;
     }
     localStorage.setItem(TOKEN_KEY, data.token);
-    setSignedInAs(data.username || username);
+
+    const uname = (data.username || username || "").toLowerCase();
+    localStorage.setItem(USER_KEY, uname);
+    setSignedInAs(uname);
+
     await load();
   }
 
@@ -63,12 +68,17 @@ export default function App() {
       return;
     }
     localStorage.setItem(TOKEN_KEY, data.token);
-    setSignedInAs(data.username || username);
+
+    const uname = (data.username || username || "").toLowerCase();
+    localStorage.setItem(USER_KEY, uname);
+    setSignedInAs(uname);
+
     await load();
   }
 
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setSignedInAs("");
     setPlayer(null);
     setDay(null);
@@ -125,6 +135,9 @@ export default function App() {
   }
 
   useEffect(() => {
+    const savedUser = localStorage.getItem(USER_KEY);
+    if (savedUser) setSignedInAs(savedUser);
+
     if (getToken()) load();
   }, []);
 
