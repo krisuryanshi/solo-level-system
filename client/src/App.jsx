@@ -31,6 +31,7 @@ export default function App() {
   const [newGold, setNewGold] = useState(5);
   const [authUser, setAuthUser] = useState("");
   const [authPin, setAuthPin] = useState("");
+  const [signedInAs, setSignedInAs] = useState("");
 
   async function login(username, pin) {
     setError("");
@@ -45,6 +46,7 @@ export default function App() {
       return;
     }
     localStorage.setItem(TOKEN_KEY, data.token);
+    setSignedInAs(data.username || username);
     await load();
   }
 
@@ -61,11 +63,13 @@ export default function App() {
       return;
     }
     localStorage.setItem(TOKEN_KEY, data.token);
+    setSignedInAs(data.username || username);
     await load();
   }
 
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
+    setSignedInAs("");
     setPlayer(null);
     setDay(null);
     setQuests([]);
@@ -133,11 +137,19 @@ export default function App() {
             <div className="subtle">Daily quests, stat growth, and rewards you can actually use.</div>
           </div>
 
-          {day ? <div className="pill">Day: {day.dayKey}</div> : <div className="pill">Day not started</div>}
+          <div className="pill">
+            {signedInAs ? `Signed in: ${signedInAs}` : "Not signed in"}
+            {day ? ` • Day: ${day.dayKey}` : " • Day not started"}
+          </div>
+
         </div>
 
         <div className="card" style={{ marginBottom: 16 }}>
           <h2>ACCOUNT</h2>
+
+          <div className="subtle" style={{ marginBottom: 10 }}>
+            {signedInAs ? `Signed in as ${signedInAs}` : "Not signed in"}
+          </div>
 
           <div className="formRow">
             <input
@@ -168,9 +180,6 @@ export default function App() {
             </button>
           </div>
 
-          <div className="subtle" style={{ marginTop: 8 }}>
-            Token is saved in localStorage as <code>solo_token</code>.
-          </div>
         </div>
 
         <div className="grid">
