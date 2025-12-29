@@ -40,12 +40,17 @@ function keepDigits(s) {
   return /^\d+$/.test(str) ? str : "";
 }
 
-// ✅ clamp only when submitting
-function clampForSubmit(n, maxM) {
-  if (n === "" || n == null) return undefined; // let backend default to 25
-  const x = Math.round(Number(n));
-  if (!Number.isFinite(x)) return undefined;
-  return Math.max(1, Math.min(maxM, x)); // ✅ min is 1 now
+// ✅ validate minutes: if blank -> undefined (backend defaults), else must be within [1, maxM]
+function validateMinutesOrError(raw, maxM) {
+  if (raw === "" || raw == null) return { ok: true, minutes: undefined };
+
+  const x = Math.round(Number(raw));
+  if (!Number.isFinite(x)) return { ok: false, message: "Minutes must be a number" };
+
+  if (x < 1) return { ok: false, message: "Minutes must be at least 1" };
+  if (x > maxM) return { ok: false, message: `Minutes must be between 1 and ${maxM}` };
+
+  return { ok: true, minutes: x };
 }
 
 export default function App() {
@@ -181,7 +186,11 @@ export default function App() {
     }
 
     const maxM = maxMinutesFor(player, tplType);
-    const parsedMinutes = clampForSubmit(tplMinutes, maxM);
+    const check = validateMinutesOrError(tplMinutes, maxM);
+    if (!check.ok) {
+      setError(check.message);
+      return;
+    }
 
     const res = await apiFetch("/templates", {
       method: "POST",
@@ -189,7 +198,7 @@ export default function App() {
       body: JSON.stringify({
         title: tplTitle,
         type: tplType,
-        minutes: parsedMinutes,
+        minutes: check.minutes,
       }),
     });
 
@@ -267,7 +276,11 @@ export default function App() {
     setError("");
 
     const maxM = maxMinutesFor(player, quickType);
-    const parsedMinutes = clampForSubmit(quickMinutes, maxM);
+    const check = validateMinutesOrError(quickMinutes, maxM);
+    if (!check.ok) {
+      setError(check.message);
+      return;
+    }
 
     const res = await apiFetch("/day/quick-add", {
       method: "POST",
@@ -275,7 +288,7 @@ export default function App() {
       body: JSON.stringify({
         title: quickTitle,
         type: quickType,
-        minutes: parsedMinutes,
+        minutes: check.minutes,
         saveAsTemplate: quickSaveAsTemplate,
       }),
     });
@@ -296,6 +309,50 @@ export default function App() {
     if (data.template) {
       await loadTemplates();
     }
+  }
+
+  // ✅ DELETE QUEST (confirm)
+  async function deleteQuest(id, title) {
+    const ok = window.confirm(`Delete quest "${title}"?\n\nThis can’t be undone.`);
+    if (!ok) return;
+
+    setError("");
+    const res = await apiFetch(`/quests/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 401) {
+      logout();
+      return;
+    }
+
+    if (!res.ok || !data.ok) {
+      setError(data.message || "Could not delete quest");
+      return;
+    }
+
+    setQuests(data.quests || []);
+  }
+
+  // ✅ DELETE TEMPLATE (confirm)
+  async function deleteTemplate(id, title) {
+    const ok = window.confirm(`Delete template "${title}"?\n\nThis can’t be undone.`);
+    if (!ok) return;
+
+    setError("");
+    const res = await apiFetch(`/templates/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 401) {
+      logout();
+      return;
+    }
+
+    if (!res.ok || !data.ok) {
+      setError(data.message || "Could not delete template");
+      return;
+    }
+
+    await loadTemplates();
   }
 
   useEffect(() => {
@@ -394,13 +451,9 @@ export default function App() {
                     <div className="xpfill" style={{ width: "0%" }} />
                   </div>
 
-                  <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-                    <button className="btn" onClick={startDay} disabled={!!day}>
+                  <div style={{ marginTop: 12 }}>
+                    <button className="btn" style={{ width: "100%" }} onClick={startDay} disabled={!!day}>
                       {day ? "Day started" : "Start day"}
-                    </button>
-
-                    <button className="btn" onClick={load}>
-                      Refresh
                     </button>
                   </div>
                 </>
@@ -408,7 +461,28 @@ export default function App() {
                 <div className="subtle">Loading player...</div>
               )}
 
-              {error && <div className="err">{error}</div>}
+              {error && (
+                <div
+                  className="err"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span style={{ flex: 1 }}>{error}</span>
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      setError("");
+                      load();
+                    }}
+                  >
+                    Got it
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="card">
@@ -466,6 +540,8 @@ export default function App() {
                 ? "Add quests from templates, then complete them to earn rewards."
                 : "Start your day, then add quests from your templates."}
             </div>
+
+            <div className="hr" />
 
             {/* Today */}
             <div style={{ marginTop: 18 }}>
@@ -541,13 +617,20 @@ export default function App() {
                       </div>
                     </div>
 
-                    <button className="btn" onClick={() => completeQuest(q.id)}>
-                      Complete
-                    </button>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button className="btn" onClick={() => completeQuest(q.id)}>
+                        Complete
+                      </button>
+                      <button className="btn" onClick={() => deleteQuest(q.id, q.title)}>
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
             </div>
+
+            <div className="hr" />
 
             {/* Templates */}
             <details style={{ marginTop: 16 }}>
@@ -605,9 +688,14 @@ export default function App() {
                           <div className="questMeta">Type: {t.type} • Default: {t.minutes} min</div>
                         </div>
 
-                        <button className="btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
-                          Add to today
-                        </button>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button className="btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
+                            Add to today
+                          </button>
+                          <button className="btn" onClick={() => deleteTemplate(t._id, t.title)}>
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}

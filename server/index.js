@@ -118,15 +118,29 @@ function maxMinutesFor(player, type) {
   return clampInt(25 + s * 5, 25, 180);
 }
 
-// ✅ UPDATED: allow minutes down to 1
-function rewardsFor(player, type, minutes) {
+// ✅ strict minutes validation
+function minutesFor(player, type, minutes) {
   const maxM = maxMinutesFor(player, type);
 
-  // If minutes missing/blank, fall back to baseline 25, then clamp to stat max.
-  const raw = minutes == null ? 25 : minutes;
+  if (minutes == null) {
+    const m = clampInt(25, 1, maxM);
+    return { ok: true, minutes: m, maxMinutes: maxM };
+  }
 
-  // ✅ MIN is 1 now (not 5)
-  const m = clampInt(raw, 1, maxM);
+  const x = Math.round(Number(minutes));
+  if (!Number.isFinite(x)) return { ok: false, message: "Minutes must be a number", maxMinutes: maxM };
+
+  if (x < 1) return { ok: false, message: "Minutes must be at least 1", maxMinutes: maxM };
+  if (x > maxM) return { ok: false, message: `Minutes must be between 1 and ${maxM}`, maxMinutes: maxM };
+
+  return { ok: true, minutes: x, maxMinutes: maxM };
+}
+
+function rewardsFor(player, type, minutes) {
+  const mRes = minutesFor(player, type, minutes);
+  if (!mRes.ok) return { ok: false, message: mRes.message, maxMinutes: mRes.maxMinutes };
+
+  const m = mRes.minutes;
 
   const xpPerMin = type === "physical" ? 2 : 1;
   const xp = m * xpPerMin;
@@ -135,10 +149,11 @@ function rewardsFor(player, type, minutes) {
   const gold = goldBase + Math.floor(m / 30);
 
   return {
+    ok: true,
     xp: clampInt(xp, 1, 999),
     gold: clampInt(gold, 0, 99),
     minutes: m,
-    maxMinutes: maxM,
+    maxMinutes: mRes.maxMinutes,
   };
 }
 
@@ -248,8 +263,10 @@ app.post("/templates", auth, async (req, res) => {
   const user = await User.findById(req.userId);
   if (!user) return res.status(401).json({ ok: false, message: "User not found" });
 
-  // ✅ clamp template minutes based on THIS user's stat max, and allow min 1
   const base = rewardsFor(user.player, type, minutes);
+  if (!base.ok) {
+    return res.status(400).json({ ok: false, message: base.message });
+  }
 
   const t = await Template.create({
     userId: req.userId,
@@ -259,6 +276,22 @@ app.post("/templates", auth, async (req, res) => {
   });
 
   res.json({ ok: true, template: t });
+});
+
+// ✅ DELETE TEMPLATE (soft delete)
+app.delete("/templates/:id", auth, async (req, res) => {
+  try {
+    const t = await Template.findOne({ _id: req.params.id, userId: req.userId, archived: false });
+    if (!t) return res.status(404).json({ ok: false, message: "Template not found" });
+
+    t.archived = true;
+    await t.save();
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE TEMPLATE ERROR:", err);
+    res.status(500).json({ ok: false, message: "Could not delete template" });
+  }
 });
 
 app.post("/day/add-from-template", auth, async (req, res) => {
@@ -280,6 +313,9 @@ app.post("/day/add-from-template", auth, async (req, res) => {
 
   const usedMinutes = minutes == null ? template.minutes : minutes;
   const base = rewardsFor(user.player, template.type, usedMinutes);
+  if (!base.ok) {
+    return res.status(400).json({ ok: false, message: base.message });
+  }
 
   const quest = {
     id: `q-${Date.now()}`,
@@ -323,6 +359,9 @@ app.post("/day/quick-add", auth, async (req, res) => {
   }
 
   const base = rewardsFor(user.player, type, minutes);
+  if (!base.ok) {
+    return res.status(400).json({ ok: false, message: base.message });
+  }
 
   let createdTemplate = null;
   if (saveAsTemplate === true) {
@@ -439,6 +478,27 @@ app.post("/quests/:id/complete", auth, async (req, res) => {
     reward,
     ...result,
   });
+});
+
+// ✅ DELETE QUEST
+app.delete("/quests/:id", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(401).json({ ok: false, message: "User not found" });
+
+    const beforeLen = user.quests?.length || 0;
+    user.quests = (user.quests || []).filter((q) => q.id !== req.params.id);
+
+    if ((user.quests?.length || 0) === beforeLen) {
+      return res.status(404).json({ ok: false, message: "Quest not found" });
+    }
+
+    await user.save();
+    res.json({ ok: true, quests: user.quests });
+  } catch (err) {
+    console.error("DELETE QUEST ERROR:", err);
+    res.status(500).json({ ok: false, message: "Could not delete quest" });
+  }
 });
 
 app.post("/stats/allocate", auth, async (req, res) => {
