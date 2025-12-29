@@ -33,24 +33,32 @@ function maxMinutesFor(player, type) {
   return Math.min(180, Math.max(25, 25 + s * 5));
 }
 
-// ✅ allow "raw typing" (1, 12, 123, 4) without snapping
+// ✅ allow raw typing (1, 12, 123) without snapping
 function keepDigits(s) {
   const str = String(s);
   if (str === "") return "";
   return /^\d+$/.test(str) ? str : "";
 }
 
-// ✅ validate minutes: if blank -> undefined (backend defaults), else must be within [1, maxM]
+// ✅ validate minutes: blank => undefined (backend default), else must be within [1, maxM]
 function validateMinutesOrError(raw, maxM) {
   if (raw === "" || raw == null) return { ok: true, minutes: undefined };
 
   const x = Math.round(Number(raw));
   if (!Number.isFinite(x)) return { ok: false, message: "Minutes must be a number" };
-
   if (x < 1) return { ok: false, message: "Minutes must be at least 1" };
   if (x > maxM) return { ok: false, message: `Minutes must be between 1 and ${maxM}` };
 
   return { ok: true, minutes: x };
+}
+
+function xpToNext(level) {
+  return 100 + (level - 1) * 25;
+}
+
+function pct(n, d) {
+  if (!d) return 0;
+  return Math.max(0, Math.min(100, (n / d) * 100));
 }
 
 export default function App() {
@@ -60,11 +68,6 @@ export default function App() {
   const [reward, setReward] = useState(null);
   const [error, setError] = useState("");
   const [templates, setTemplates] = useState([]);
-
-  // template form
-  const [tplTitle, setTplTitle] = useState("");
-  const [tplType, setTplType] = useState("");
-  const [tplMinutes, setTplMinutes] = useState("");
 
   // auth
   const [authUser, setAuthUser] = useState("");
@@ -77,8 +80,10 @@ export default function App() {
   const [quickMinutes, setQuickMinutes] = useState("");
   const [quickSaveAsTemplate, setQuickSaveAsTemplate] = useState(false);
 
+  // templates modal
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+
   const quickMaxMinutes = quickType ? maxMinutesFor(player, quickType) : 25;
-  const tplMaxMinutes = useMemo(() => maxMinutesFor(player, tplType), [player, tplType]);
 
   async function login(username, password) {
     setError("");
@@ -147,6 +152,12 @@ export default function App() {
     setQuests([]);
     setReward(null);
     setTemplates([]);
+    setTemplatesOpen(false);
+
+    setQuickTitle("");
+    setQuickType("");
+    setQuickMinutes("");
+    setQuickSaveAsTemplate(false);
   }
 
   async function load() {
@@ -175,44 +186,6 @@ export default function App() {
     }
 
     setTemplates(data.templates || []);
-  }
-
-  async function createTemplate() {
-    setError("");
-
-    if (!tplType) {
-      setError("Pick a type first");
-      return;
-    }
-
-    const maxM = maxMinutesFor(player, tplType);
-    const check = validateMinutesOrError(tplMinutes, maxM);
-    if (!check.ok) {
-      setError(check.message);
-      return;
-    }
-
-    const res = await apiFetch("/templates", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: tplTitle,
-        type: tplType,
-        minutes: check.minutes,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      setError(data.message || "Could not create template");
-      return;
-    }
-
-    setTplTitle("");
-    setTplType("");
-    setTplMinutes("");
-
-    await loadTemplates();
   }
 
   async function addFromTemplate(templateId) {
@@ -259,7 +232,6 @@ export default function App() {
     setReward({
       title: data.quest.title,
       xp: data.reward.xp,
-      gold: data.reward.gold,
       leveledUp: data.leveledUp,
       levelsGained: data.levelsGained,
       playerAfter: data.after,
@@ -289,7 +261,7 @@ export default function App() {
         title: quickTitle,
         type: quickType,
         minutes: check.minutes,
-        saveAsTemplate: quickSaveAsTemplate,
+        saveAsTemplate: quickSaveAsTemplate, // ✅ BACK
       }),
     });
 
@@ -311,7 +283,6 @@ export default function App() {
     }
   }
 
-  // ✅ DELETE QUEST (confirm)
   async function deleteQuest(id, title) {
     const ok = window.confirm(`Delete quest "${title}"?\n\nThis can’t be undone.`);
     if (!ok) return;
@@ -333,7 +304,6 @@ export default function App() {
     setQuests(data.quests || []);
   }
 
-  // ✅ DELETE TEMPLATE (confirm)
   async function deleteTemplate(id, title) {
     const ok = window.confirm(`Delete template "${title}"?\n\nThis can’t be undone.`);
     if (!ok) return;
@@ -352,7 +322,7 @@ export default function App() {
       return;
     }
 
-    await loadTemplates();
+    setTemplates(data.templates || []);
   }
 
   useEffect(() => {
@@ -377,8 +347,7 @@ export default function App() {
           </div>
 
           <div className="pill">
-            {signedInAs ? `Signed in: ${signedInAs}` : "Not signed in"}
-            {day ? ` • Day: ${day.dayKey}` : " • Day not started"}
+            {day ? `Day: ${day.dayKey}` : "Day not started"}
           </div>
         </div>
 
@@ -423,42 +392,38 @@ export default function App() {
           {/* LEFT COLUMN */}
           <div style={{ display: "grid", gap: 16 }}>
             <div className="card">
-              <h2>STATUS</h2>
+              <h2>LEVEL</h2>
 
               {player ? (
                 <>
-                  <div className="row">
-                    <div>Level</div>
-                    <div>{player.level}</div>
+                  {/* Big level number */}
+                  <div style={{ fontSize: 56, fontWeight: 800, lineHeight: 1, marginTop: 6 }}>
+                    {player.level}
                   </div>
 
-                  <div className="row">
-                    <div>XP</div>
-                    <div>{player.xp}</div>
+                  {/* XP progress */}
+                  <div className="subtle" style={{ marginTop: 10, marginBottom: 8 }}>
+                    {player.xp} / {xpToNext(player.level)} XP
                   </div>
 
-                  <div className="row">
-                    <div>Gold</div>
-                    <div>{player.gold}</div>
+                  <div className="xpbar" style={{ height: 16 }}>
+                    <div
+                      className="xpfill"
+                      style={{
+                        width: `${pct(player.xp, xpToNext(player.level))}%`,
+                        height: "100%",
+                      }}
+                    />
                   </div>
 
-                  <div className="row">
-                    <div>Stat Points</div>
-                    <div>{player.statPoints}</div>
-                  </div>
-
-                  <div className="xpbar">
-                    <div className="xpfill" style={{ width: "0%" }} />
-                  </div>
-
-                  <div style={{ marginTop: 12 }}>
+                  <div style={{ marginTop: 14 }}>
                     <button className="btn" style={{ width: "100%" }} onClick={startDay} disabled={!!day}>
                       {day ? "Day started" : "Start day"}
                     </button>
                   </div>
                 </>
               ) : (
-                <div className="subtle">Loading player...</div>
+                <div className="subtle">Loading...</div>
               )}
 
               {error && (
@@ -477,6 +442,7 @@ export default function App() {
                     onClick={() => {
                       setError("");
                       load();
+                      loadTemplates();
                     }}
                   >
                     Got it
@@ -556,7 +522,7 @@ export default function App() {
                       className="input"
                       value={quickTitle}
                       onChange={(e) => setQuickTitle(e.target.value)}
-                      placeholder="Quick add (e.g., Grocery run, CS final)"
+                      placeholder="Quick add (e.g., Grocery run, CS project)"
                     />
 
                     <select
@@ -578,7 +544,7 @@ export default function App() {
                       value={quickMinutes}
                       min={1}
                       max={quickMaxMinutes}
-                      placeholder={`min (up to ${quickMaxMinutes})`}
+                      placeholder={quickType ? `min (up to ${quickMaxMinutes})` : "min"}
                       onChange={(e) => setQuickMinutes(keepDigits(e.target.value))}
                     />
 
@@ -587,6 +553,7 @@ export default function App() {
                     </button>
                   </div>
 
+                  {/* ✅ BACK: only way to create templates now */}
                   <label
                     className="subtle"
                     style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}
@@ -613,7 +580,7 @@ export default function App() {
                     <div>
                       <div className="questTitle">{q.title}</div>
                       <div className="questMeta">
-                        Type: {q.type} • {q.minutes} min • Reward: +{q.xpReward} XP, +{q.goldReward} gold
+                        Type: {q.type} • {q.minutes} min • Reward: +{q.xpReward} XP
                       </div>
                     </div>
 
@@ -632,78 +599,97 @@ export default function App() {
 
             <div className="hr" />
 
-            {/* Templates */}
-            <details style={{ marginTop: 16 }}>
-              <summary className="subtle" style={{ cursor: "pointer" }}>
-                Templates (create reusable quests)
-              </summary>
+            {/* ✅ REPLACEMENT: big button opens templates modal */}
+            <div style={{ marginTop: 16 }}>
+              <button
+                className="btn"
+                style={{ width: "100%" }}
+                onClick={() => setTemplatesOpen(true)}
+                disabled={!signedInAs}
+              >
+                Templates
+              </button>
 
-              <div style={{ marginTop: 10 }}>
-                <div className="formRow" style={{ marginBottom: 10 }}>
-                  <input
-                    className="input"
-                    value={tplTitle}
-                    onChange={(e) => setTplTitle(e.target.value)}
-                    placeholder="Template title (e.g., Study block, Prayer)"
-                  />
+              {!signedInAs && <div className="subtle" style={{ marginTop: 10 }}>Sign in to view templates.</div>}
 
-                  <select
-                    className={`select ${tplType === "" ? "selectPlaceholder" : ""}`}
-                    value={tplType}
-                    onChange={(e) => setTplType(e.target.value)}
-                  >
-                    <option value="" disabled>
-                      Type
-                    </option>
-                    <option value="physical">physical</option>
-                    <option value="intellectual">intellectual</option>
-                    <option value="spiritual">spiritual</option>
-                  </select>
-
-                  <input
-                    className="input"
-                    type="number"
-                    value={tplMinutes}
-                    min={1}
-                    max={tplMaxMinutes}
-                    placeholder={`min (up to ${tplMaxMinutes})`}
-                    onChange={(e) => setTplMinutes(keepDigits(e.target.value))}
-                  />
-
-                  <button className="btn" onClick={createTemplate} disabled={!tplTitle.trim() || !tplType}>
-                    Create
-                  </button>
+              {signedInAs && templates.length === 0 && (
+                <div className="subtle" style={{ marginTop: 10 }}>
+                  No templates yet. Use “Also save as template” when adding a quest.
                 </div>
-
-                <div className="subtle">Templates are your library. Add them to today when you want to do them.</div>
-
-                <div style={{ marginTop: 14 }}>
-                  {templates.length === 0 ? (
-                    <div className="subtle">No templates yet.</div>
-                  ) : (
-                    templates.map((t) => (
-                      <div key={t._id} className="quest">
-                        <div>
-                          <div className="questTitle">{t.title}</div>
-                          <div className="questMeta">Type: {t.type} • Default: {t.minutes} min</div>
-                        </div>
-
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button className="btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
-                            Add to today
-                          </button>
-                          <button className="btn" onClick={() => deleteTemplate(t._id, t.title)}>
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </details>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* ✅ Templates Modal (quest-complete style but with list/actions) */}
+        {templatesOpen && (
+          <div
+            onClick={() => setTemplatesOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.55)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+              zIndex: 9999,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(760px, 100%)",
+                borderRadius: 16,
+                background: "#0b1220",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+                padding: 16,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ fontWeight: 700, letterSpacing: 0.4 }}>Templates</div>
+                <button className="btn" onClick={() => setTemplatesOpen(false)}>
+                  Close
+                </button>
+              </div>
+
+              <div className="subtle" style={{ marginTop: 8 }}>
+                Add templates to today, or delete ones you don’t use anymore.
+              </div>
+
+              <div className="hr" style={{ marginTop: 12, marginBottom: 12 }} />
+
+              {templates.length === 0 ? (
+                <div className="subtle">
+                  No templates yet. Use “Also save as template” when adding a quest.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {templates.map((t) => (
+                    <div key={t._id} className="quest">
+                      <div>
+                        <div className="questTitle">{t.title}</div>
+                        <div className="questMeta">
+                          Type: {t.type} • Default: {t.minutes} min
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button className="btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
+                          Add to today
+                        </button>
+                        <button className="btn" onClick={() => deleteTemplate(t._id, t.title)}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <SystemModal
           open={!!reward}
@@ -711,13 +697,12 @@ export default function App() {
           lines={
             reward
               ? [
-                  reward.title,
-                  `+${reward.xp} XP`,
-                  `+${reward.gold} gold`,
-                  ...(reward.leveledUp
-                    ? [`Level Up! +${reward.levelsGained} level${reward.levelsGained === 1 ? "" : "s"}`]
-                    : []),
-                ]
+                reward.title,
+                `+${reward.xp} XP`,
+                ...(reward.leveledUp
+                  ? [`Level Up! +${reward.levelsGained} level${reward.levelsGained === 1 ? "" : "s"}`]
+                  : []),
+              ]
               : []
           }
           onAccept={() => setReward(null)}

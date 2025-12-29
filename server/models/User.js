@@ -13,7 +13,6 @@ const QuestSchema = new mongoose.Schema(
         note: { type: String, default: "" },
 
         xpReward: { type: Number, required: true },   // computed snapshot
-        goldReward: { type: Number, required: true }, // computed snapshot
 
         completed: { type: Boolean, default: false },
         completedAt: { type: String, default: null },
@@ -30,7 +29,6 @@ const UserSchema = new mongoose.Schema(
         player: {
             level: { type: Number, default: 1 },
             xp: { type: Number, default: 0 },
-            gold: { type: Number, default: 0 },
             statPoints: { type: Number, default: 0 },
             stats: {
                 physical: { type: Number, default: 0 },
