@@ -3,10 +3,18 @@ import mongoose from "mongoose";
 const QuestSchema = new mongoose.Schema(
     {
         id: { type: String, required: true },
-        type: { type: String, enum: ["focus", "strength", "craft"], required: true },
+        kind: { type: String, enum: ["template", "quick"], default: "template" },
+
+        templateId: { type: String, default: null },
+        type: { type: String, enum: ["physical", "intellectual", "spiritual"], required: true },
         title: { type: String, required: true },
-        xpReward: { type: Number, required: true },
-        goldReward: { type: Number, required: true },
+
+        minutes: { type: Number, required: true },
+        note: { type: String, default: "" },
+
+        xpReward: { type: Number, required: true },   // computed snapshot
+        goldReward: { type: Number, required: true }, // computed snapshot
+
         completed: { type: Boolean, default: false },
         completedAt: { type: String, default: null },
     },
@@ -25,9 +33,9 @@ const UserSchema = new mongoose.Schema(
             gold: { type: Number, default: 0 },
             statPoints: { type: Number, default: 0 },
             stats: {
-                focus: { type: Number, default: 0 },
-                strength: { type: Number, default: 0 },
-                craft: { type: Number, default: 0 },
+                physical: { type: Number, default: 0 },
+                intellectual: { type: Number, default: 0 },
+                spiritual: { type: Number, default: 0 },
             },
         },
 

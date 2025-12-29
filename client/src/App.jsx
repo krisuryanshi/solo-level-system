@@ -1,6 +1,6 @@
 import SystemModal from "./SystemModal";
 import "./App.css";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const API = "http://localhost:5050";
 
@@ -20,19 +20,60 @@ async function apiFetch(path, options = {}) {
   return fetch(`${API}${path}`, { ...options, headers });
 }
 
+// must match backend formula exactly
+function maxMinutesFor(player, type) {
+  if (!player?.stats) return 180; // safe fallback
+  const s =
+    type === "physical"
+      ? player.stats.physical
+      : type === "intellectual"
+        ? player.stats.intellectual
+        : player.stats.spiritual;
+
+  return Math.min(180, Math.max(25, 25 + s * 5));
+}
+
+// ✅ allow "raw typing" (1, 12, 123, 4) without snapping
+function keepDigits(s) {
+  const str = String(s);
+  if (str === "") return "";
+  return /^\d+$/.test(str) ? str : "";
+}
+
+// ✅ clamp only when submitting
+function clampForSubmit(n, maxM) {
+  if (n === "" || n == null) return undefined; // let backend default to 25
+  const x = Math.round(Number(n));
+  if (!Number.isFinite(x)) return undefined;
+  return Math.max(1, Math.min(maxM, x)); // ✅ min is 1 now
+}
+
 export default function App() {
   const [player, setPlayer] = useState(null);
   const [day, setDay] = useState(null);
   const [quests, setQuests] = useState([]);
   const [reward, setReward] = useState(null);
   const [error, setError] = useState("");
-  const [newTitle, setNewTitle] = useState("");
-  const [newType, setNewType] = useState("focus");
-  const [newXp, setNewXp] = useState(25);
-  const [newGold, setNewGold] = useState(5);
+  const [templates, setTemplates] = useState([]);
+
+  // template form
+  const [tplTitle, setTplTitle] = useState("");
+  const [tplType, setTplType] = useState("");
+  const [tplMinutes, setTplMinutes] = useState("");
+
+  // auth
   const [authUser, setAuthUser] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [signedInAs, setSignedInAs] = useState("");
+
+  // quick add form
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickType, setQuickType] = useState("");
+  const [quickMinutes, setQuickMinutes] = useState("");
+  const [quickSaveAsTemplate, setQuickSaveAsTemplate] = useState(false);
+
+  const quickMaxMinutes = quickType ? maxMinutesFor(player, quickType) : 25;
+  const tplMaxMinutes = useMemo(() => maxMinutesFor(player, tplType), [player, tplType]);
 
   async function login(username, password) {
     setError("");
@@ -47,6 +88,7 @@ export default function App() {
       setAuthPassword("");
       return;
     }
+
     localStorage.setItem(TOKEN_KEY, data.token);
 
     const uname = (data.username || username || "").toLowerCase();
@@ -57,6 +99,7 @@ export default function App() {
     setAuthPassword("");
 
     await load();
+    await loadTemplates();
   }
 
   async function register(username, password) {
@@ -72,6 +115,7 @@ export default function App() {
       setAuthPassword("");
       return;
     }
+
     localStorage.setItem(TOKEN_KEY, data.token);
 
     const uname = (data.username || username || "").toLowerCase();
@@ -82,6 +126,7 @@ export default function App() {
     setAuthPassword("");
 
     await load();
+    await loadTemplates();
   }
 
   function logout() {
@@ -96,6 +141,7 @@ export default function App() {
     setDay(null);
     setQuests([]);
     setReward(null);
+    setTemplates([]);
   }
 
   async function load() {
@@ -111,6 +157,71 @@ export default function App() {
     const d = await dRes.json();
     setDay(d.activeDay);
     setQuests(d.quests || []);
+  }
+
+  async function loadTemplates() {
+    const res = await apiFetch("/templates");
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      setError(data.message || "Could not load templates");
+      setTemplates([]);
+      return;
+    }
+
+    setTemplates(data.templates || []);
+  }
+
+  async function createTemplate() {
+    setError("");
+
+    if (!tplType) {
+      setError("Pick a type first");
+      return;
+    }
+
+    const maxM = maxMinutesFor(player, tplType);
+    const parsedMinutes = clampForSubmit(tplMinutes, maxM);
+
+    const res = await apiFetch("/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: tplTitle,
+        type: tplType,
+        minutes: parsedMinutes,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.message || "Could not create template");
+      return;
+    }
+
+    setTplTitle("");
+    setTplType("");
+    setTplMinutes("");
+
+    await loadTemplates();
+  }
+
+  async function addFromTemplate(templateId) {
+    setError("");
+
+    const res = await apiFetch("/day/add-from-template", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.message || "Could not add quest from template");
+      return;
+    }
+
+    setQuests(data.quests || []);
   }
 
   async function startDay() {
@@ -148,12 +259,56 @@ export default function App() {
     await load();
   }
 
+  async function quickAdd() {
+    if (!quickType) {
+      setError("Pick a type first");
+      return;
+    }
+    setError("");
+
+    const maxM = maxMinutesFor(player, quickType);
+    const parsedMinutes = clampForSubmit(quickMinutes, maxM);
+
+    const res = await apiFetch("/day/quick-add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: quickTitle,
+        type: quickType,
+        minutes: parsedMinutes,
+        saveAsTemplate: quickSaveAsTemplate,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.message || "Could not add quest");
+      return;
+    }
+
+    setQuickTitle("");
+    setQuickType("");
+    setQuickMinutes("");
+    setQuickSaveAsTemplate(false);
+
+    setQuests(data.quests || []);
+
+    if (data.template) {
+      await loadTemplates();
+    }
+  }
+
   useEffect(() => {
     const savedUser = localStorage.getItem(USER_KEY);
     if (savedUser) setSignedInAs(savedUser);
 
-    if (getToken()) load();
+    if (getToken()) {
+      load();
+      loadTemplates();
+    }
   }, []);
+
+  const visibleQuests = (quests || []).filter((q) => !q.completed);
 
   return (
     <div className="page">
@@ -168,40 +323,43 @@ export default function App() {
             {signedInAs ? `Signed in: ${signedInAs}` : "Not signed in"}
             {day ? ` • Day: ${day.dayKey}` : " • Day not started"}
           </div>
-
         </div>
 
         <div className="card" style={{ marginBottom: 16 }}>
           <h2>ACCOUNT</h2>
 
-          <div className="authRow">
-            <input
-              className="input"
-              placeholder="username"
-              value={authUser}
-              onChange={(e) => setAuthUser(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="password"
-              type="password"
-              value={authPassword}
-              onChange={(e) => setAuthPassword(e.target.value)}
-            />
-
-            <button className="btn" onClick={() => login(authUser, authPassword)}>
-              Login
-            </button>
-
-            <button className="btn" onClick={() => register(authUser, authPassword)}>
-              Register
-            </button>
-
-            <button className="btn" onClick={logout}>
-              Logout
-            </button>
-          </div>
-
+          {signedInAs ? (
+            <div className="authRow authRowLoggedIn">
+              <div className="subtle" style={{ flex: 1 }}>
+                Signed in as <b>{signedInAs}</b>
+              </div>
+              <button className="btn" onClick={logout}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="authRow">
+              <input
+                className="input"
+                placeholder="username"
+                value={authUser}
+                onChange={(e) => setAuthUser(e.target.value)}
+              />
+              <input
+                className="input"
+                placeholder="password"
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+              />
+              <button className="btn" onClick={() => login(authUser, authPassword)}>
+                Login
+              </button>
+              <button className="btn" onClick={() => register(authUser, authPassword)}>
+                Register
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="grid">
@@ -232,14 +390,8 @@ export default function App() {
                     <div>{player.statPoints}</div>
                   </div>
 
-                  {/* XP bar (simple for now) */}
                   <div className="xpbar">
-                    <div
-                      className="xpfill"
-                      style={{
-                        width: "0%",
-                      }}
-                    />
+                    <div className="xpfill" style={{ width: "0%" }} />
                   </div>
 
                   <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
@@ -268,7 +420,7 @@ export default function App() {
                     Unspent points: {player.statPoints}
                   </div>
 
-                  {["focus", "strength", "craft"].map((s) => (
+                  {["physical", "intellectual", "spiritual"].map((s) => (
                     <div key={s} className="row" style={{ alignItems: "center" }}>
                       <div style={{ textTransform: "capitalize" }}>{s}</div>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -310,107 +462,158 @@ export default function App() {
             <h2>QUEST BOARD</h2>
 
             <div className="subtle" style={{ marginBottom: 10 }}>
-              {day ? "Add quests, then complete them to earn rewards." : "Start your day to generate daily quests and add custom ones."}
+              {day
+                ? "Add quests from templates, then complete them to earn rewards."
+                : "Start your day, then add quests from your templates."}
             </div>
 
-            {/* Add quest */}
-            <div style={{ marginBottom: 14 }}>
-              <div className="subtle" style={{ marginBottom: 8 }}>Add a quest</div>
-
-              <input
-                className="input"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Quest title (e.g., finish math problem set)"
-                disabled={!day}
-                style={{ width: "100%", marginBottom: 10 }}
-              />
-
-              <div className="formRow">
-                <select className="select" value={newType} onChange={(e) => setNewType(e.target.value)} disabled={!day}>
-                  <option value="focus">focus</option>
-                  <option value="strength">strength</option>
-                  <option value="craft">craft</option>
-                </select>
-
-                <input
-                  className="input"
-                  type="number"
-                  value={newXp}
-                  onChange={(e) => setNewXp(e.target.value)}
-                  disabled={!day}
-                />
-
-                <input
-                  className="input"
-                  type="number"
-                  value={newGold}
-                  onChange={(e) => setNewGold(e.target.value)}
-                  disabled={!day}
-                />
-
-                <button
-                  className="btn"
-                  disabled={!day}
-                  onClick={async () => {
-                    setError("");
-                    const res = await apiFetch("/quests", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        title: newTitle,
-                        type: newType,
-                        xpReward: Number(newXp),
-                        goldReward: Number(newGold),
-                      }),
-                    });
-
-                    const data = await res.json();
-                    if (!res.ok) {
-                      setError(data.message || "Could not add quest");
-                      return;
-                    }
-
-                    setNewTitle("");
-                    await load();
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-
-              <div className="subtle" style={{ marginTop: 8 }}>
-                XP and gold are rewards. Type decides which stat boosts it.
-              </div>
-            </div>
-
-            {/* Quest list */}
+            {/* Today */}
             <div style={{ marginTop: 18 }}>
-              <div className="subtle" style={{ marginBottom: 10 }}>Today’s quests</div>
+              <div className="subtle" style={{ marginBottom: 10 }}>
+                Today’s quests
+              </div>
 
-              {quests.length === 0 ? (
-                <div className="subtle">No quests yet. Start your day.</div>
+              {day && (
+                <>
+                  <div className="quickRow" style={{ marginBottom: 10 }}>
+                    <input
+                      className="input"
+                      value={quickTitle}
+                      onChange={(e) => setQuickTitle(e.target.value)}
+                      placeholder="Quick add (e.g., Grocery run, CS final)"
+                    />
+
+                    <select
+                      className={`select ${quickType === "" ? "selectPlaceholder" : ""}`}
+                      value={quickType}
+                      onChange={(e) => setQuickType(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        Type
+                      </option>
+                      <option value="physical">physical</option>
+                      <option value="intellectual">intellectual</option>
+                      <option value="spiritual">spiritual</option>
+                    </select>
+
+                    <input
+                      className="input"
+                      type="number"
+                      value={quickMinutes}
+                      min={1}
+                      max={quickMaxMinutes}
+                      placeholder={`min (up to ${quickMaxMinutes})`}
+                      onChange={(e) => setQuickMinutes(keepDigits(e.target.value))}
+                    />
+
+                    <button className="btn" onClick={quickAdd} disabled={!quickTitle.trim() || !quickType}>
+                      Add
+                    </button>
+                  </div>
+
+                  <label
+                    className="subtle"
+                    style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={quickSaveAsTemplate}
+                      onChange={(e) => setQuickSaveAsTemplate(e.target.checked)}
+                    />
+                    Also save as template
+                  </label>
+                </>
+              )}
+
+              {!day ? (
+                <div className="subtle">Start your day to add quests.</div>
+              ) : quests.length === 0 ? (
+                <div className="subtle">No quests added yet. Add one from your templates.</div>
+              ) : visibleQuests.length === 0 ? (
+                <div className="subtle">No quests left. You’re done for today.</div>
               ) : (
-                quests.map((q) => (
-                  <div key={q._id || q.id} className="quest">
+                visibleQuests.map((q) => (
+                  <div key={q.id} className="quest">
                     <div>
                       <div className="questTitle">{q.title}</div>
                       <div className="questMeta">
-                        Type: {q.type} • Reward: +{q.xpReward} XP, +{q.goldReward} gold
+                        Type: {q.type} • {q.minutes} min • Reward: +{q.xpReward} XP, +{q.goldReward} gold
                       </div>
                     </div>
 
-                    {q.completed ? (
-                      <div style={{ opacity: 0.9 }}>✅</div>
-                    ) : (
-                      <button className="btn" onClick={() => completeQuest(q._id || q.id)}>
-                        Complete
-                      </button>
-                    )}
+                    <button className="btn" onClick={() => completeQuest(q.id)}>
+                      Complete
+                    </button>
                   </div>
                 ))
               )}
             </div>
+
+            {/* Templates */}
+            <details style={{ marginTop: 16 }}>
+              <summary className="subtle" style={{ cursor: "pointer" }}>
+                Templates (create reusable quests)
+              </summary>
+
+              <div style={{ marginTop: 10 }}>
+                <div className="formRow" style={{ marginBottom: 10 }}>
+                  <input
+                    className="input"
+                    value={tplTitle}
+                    onChange={(e) => setTplTitle(e.target.value)}
+                    placeholder="Template title (e.g., Study block, Prayer)"
+                  />
+
+                  <select
+                    className={`select ${tplType === "" ? "selectPlaceholder" : ""}`}
+                    value={tplType}
+                    onChange={(e) => setTplType(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Type
+                    </option>
+                    <option value="physical">physical</option>
+                    <option value="intellectual">intellectual</option>
+                    <option value="spiritual">spiritual</option>
+                  </select>
+
+                  <input
+                    className="input"
+                    type="number"
+                    value={tplMinutes}
+                    min={1}
+                    max={tplMaxMinutes}
+                    placeholder={`min (up to ${tplMaxMinutes})`}
+                    onChange={(e) => setTplMinutes(keepDigits(e.target.value))}
+                  />
+
+                  <button className="btn" onClick={createTemplate} disabled={!tplTitle.trim() || !tplType}>
+                    Create
+                  </button>
+                </div>
+
+                <div className="subtle">Templates are your library. Add them to today when you want to do them.</div>
+
+                <div style={{ marginTop: 14 }}>
+                  {templates.length === 0 ? (
+                    <div className="subtle">No templates yet.</div>
+                  ) : (
+                    templates.map((t) => (
+                      <div key={t._id} className="quest">
+                        <div>
+                          <div className="questTitle">{t.title}</div>
+                          <div className="questMeta">Type: {t.type} • Default: {t.minutes} min</div>
+                        </div>
+
+                        <button className="btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
+                          Add to today
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -420,13 +623,13 @@ export default function App() {
           lines={
             reward
               ? [
-                reward.title,
-                `+${reward.xp} XP`,
-                `+${reward.gold} gold`,
-                ...(reward.leveledUp
-                  ? [`Level Up! +${reward.levelsGained} level${reward.levelsGained === 1 ? "" : "s"}`]
-                  : []),
-              ]
+                  reward.title,
+                  `+${reward.xp} XP`,
+                  `+${reward.gold} gold`,
+                  ...(reward.leveledUp
+                    ? [`Level Up! +${reward.levelsGained} level${reward.levelsGained === 1 ? "" : "s"}`]
+                    : []),
+                ]
               : []
           }
           onAccept={() => setReward(null)}
