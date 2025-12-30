@@ -40,7 +40,7 @@
 /* grid */
 .grid {
   display: grid;
-  grid-template-columns: minmax(280px, 320px) 1fr;
+  grid-template-columns: minmax(240px, 280px) 1fr;
   gap: 16px;
 }
 

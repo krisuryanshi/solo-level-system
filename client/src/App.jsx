@@ -522,7 +522,7 @@ export default function App() {
                       className="input"
                       value={quickTitle}
                       onChange={(e) => setQuickTitle(e.target.value)}
-                      placeholder="Quick add (e.g., Grocery run, CS project)"
+                      placeholder="Quest title (e.g., hit legs, CS assignment, pray)"
                     />
 
                     <select
@@ -544,7 +544,7 @@ export default function App() {
                       value={quickMinutes}
                       min={1}
                       max={quickMaxMinutes}
-                      placeholder={quickType ? `min (up to ${quickMaxMinutes})` : "min"}
+                      placeholder={quickType ? `Min (up to ${quickMaxMinutes})` : "Min"}
                       onChange={(e) => setQuickMinutes(keepDigits(e.target.value))}
                     />
 
