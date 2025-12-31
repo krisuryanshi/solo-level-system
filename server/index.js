@@ -12,12 +12,20 @@ import Template from "./models/Template.js";
 const app = express();
 
 const allowed = [
-  "http://localhost:5173",
-  "http://localhost:5177",
-  process.env.CLIENT_URL,
+    "http://localhost:5173",
+    "http://localhost:5177",
+    "http://localhost:5178",
+    process.env.CLIENT_URL,
 ].filter(Boolean);
 
-app.use(cors({ origin: allowed, credentials: true }));
+app.use(cors({
+    origin: (origin, cb) => {
+        if (!origin) return cb(null, true);
+        if (allowed.includes(origin)) return cb(null, true);
+        return cb(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+}));
 
 app.use(express.json());
 
