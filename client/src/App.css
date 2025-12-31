@@ -4,51 +4,50 @@
   box-sizing: border-box;
 }
 
-/* ✅ Needed: remove default margins + ensure no background seams */
+/* remove default margins and ensure no background seams */
 html,
 body {
-  height: 100%;
+  height: auto;
+  min-height: 100%;
   margin: 0;
   background: #0b0f18;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* page */
 .page {
-  height: 100vh;
-  /*  lock to viewport height */
+  /* don't lock to 100vh and don't make .page the scroll container */
+  min-height: 100dvh;
+  height: auto;
+
   padding: 28px;
+  padding-top: calc(28px + env(safe-area-inset-top));
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+
   color: rgba(240, 248, 255, 0.92);
   background: #0b0f18;
 
   position: relative;
 
-  /* ✅ Desktop stays “locked”, BUT if zoom makes content overflow, you can scroll */
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: visible;
 
-  /* prevents “scroll past the end” feel */
   overscroll-behavior: contain;
 
   display: flex;
-  /*  lets .shell fill the padded area */
 
-  /* read level from inline style */
   --lvlRaw: var(--lvlRaw, 1);
 
-  /* first 20 levels = mostly color palette progression */
   --lvl20: min(20, var(--lvlRaw));
   --t: calc((var(--lvl20) - 1) / 19);
 
-  /* cursor strength keeps scaling past 20 up to level 40 */
   --lvl40: min(40, var(--lvlRaw));
   --tc: calc((var(--lvl40) - 1) / 39);
 
-  /* cursor defaults */
   --mx: 50%;
   --my: 40%;
 
-  /* palette shifts as you level */
   --c1r: calc(110 + var(--t) * 80);
   --c1g: calc(190 - var(--t) * 60);
   --c1b: calc(255 - var(--t) * 20);
@@ -61,27 +60,20 @@ body {
   --c3g: calc(255 - var(--t) * 10);
   --c3b: calc(210 - var(--t) * 80);
 
-  /* drifting blobs intensity */
   --blobA: calc(0.10 + var(--t) * 0.22);
   --blobB: calc(0.08 + var(--t) * 0.20);
   --blobC: calc(0.06 + var(--t) * 0.18);
 
-  /*  OFF until 21+: clamp(0, lvl-20, 1) */
   --stepAfter20: clamp(0, calc(var(--lvlRaw) - 20), 1);
 
-  /*  cursor-follow becomes much more visual (but only after 20 now) */
   --cursorA: calc(var(--stepAfter20) * 0.80);
-  /* white core only after 20 */
   --cursorB: calc((0.06 + var(--tc) * 0.55) * var(--stepAfter20));
-  /* colored halo gated */
   --cursorC: calc((0.03 + var(--tc) * 0.40) * var(--stepAfter20));
-  /* ring gated */
 
   --cursorSizeA: calc(22% + var(--tc) * 18%);
   --cursorSizeB: calc(34% + var(--tc) * 24%);
   --cursorSizeC: calc(16% + var(--tc) * 14%);
 
-  /* blur */
   --blur1: calc(22px + var(--t) * 40px);
   --blur2: calc(10px + var(--tc) * 22px);
 
@@ -91,7 +83,7 @@ body {
   --spin: calc(40s - var(--t) * 18s);
 }
 
-/* Layer 1: big drifting blobs */
+/* first layer */
 .page::before {
   content: "";
   position: fixed;
@@ -115,7 +107,7 @@ body {
   animation: bgDrift1 var(--dur1) ease-in-out infinite;
 }
 
-/* Layer 2:  cursor-follow lighting (COMPLETELY hidden until 21+) */
+/* second layer */
 .page::after {
   content: "";
   position: fixed;
@@ -142,30 +134,19 @@ body {
   transform: translate3d(0, 0, 0);
   animation: bgDrift2 var(--dur2) ease-in-out infinite;
 
-  /*  the hard gate + allow turning main tracking off when a popup is open */
   opacity: calc(var(--stepAfter20) * var(--trackMain, 1));
   transition: opacity 600ms ease;
 }
 
-/*
-  Reuse the SAME level-based background on popups.
-  - Add className="bg-surface" to any popup card you want to carry the effect.
-  - Set style={{ "--trackPopup": 1 }} on the popup card to enable cursor tracking there.
-*/
 .bg-surface {
   position: relative;
   overflow: hidden;
   isolation: isolate;
 
-  /* popup-only tuning so the cursor "white" isn't blinding */
   --popupCoreScale: 0.12;
-  /* scales the white core */
   --popupHaloScale: 0.40;
-  /* scales colored halo strength */
   --popupRingScale: 0.40;
-  /* scales ring strength */
   --popupSizeScale: 0.82;
-  /* makes the hotspot a bit smaller */
 }
 
 .bg-surface>* {
@@ -198,7 +179,6 @@ body {
   opacity: 0.95;
 }
 
-/* popup cursor-follow lighting (only when popup is open + after 20) */
 .bg-surface::after {
   content: "";
   position: absolute;
@@ -225,12 +205,12 @@ body {
   transform: translate3d(0, 0, 0);
   animation: bgDrift2 var(--dur2) ease-in-out infinite;
 
-  /* hard gate + only show while popup is the active tracking surface */
+  /* hard gate and only show while popup is the active tracking surface */
   opacity: calc(var(--stepAfter20) * var(--trackPopup, 0));
   transition: opacity 300ms ease;
 }
 
-/* Layer 3: rotating aura ring */
+/* third layer */
 .page .shell::before {
   content: "";
   position: fixed;
@@ -260,16 +240,13 @@ body {
   width: 100%;
   height: 100%;
 
-  /* IMPORTANT: do NOT clip the background layers */
   overflow: visible;
 }
 
-/* ✅ tiny spacer so 100% zoom has the same “extra slack” as 90% */
 .shell::after {
   content: "";
   display: block;
   height: 26px;
-  /* tweak 18–40 if you want */
 }
 
 .topbar {
@@ -362,7 +339,7 @@ body {
   transition: width 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* buttons + inputs */
+/* buttons and inputs */
 .btn {
   padding: 10px 12px;
   border-radius: 10px;
@@ -412,7 +389,7 @@ body {
   appearance: textfield;
 }
 
-/* Quick add + template create rows */
+/* quick add and template create rows */
 .quickRow {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) 140px 130px 120px;
@@ -441,7 +418,7 @@ body {
   }
 }
 
-/* Account row */
+/* account row */
 .authRow {
   display: grid;
   grid-template-columns: 1.6fr 1.2fr 120px 120px;
@@ -506,7 +483,7 @@ body {
     0 0 38px rgba(110, 190, 255, 0.25);
 }
 
-/* System modal */
+/* system modal */
 .sys-overlay {
   position: fixed;
   inset: 0;
@@ -598,7 +575,7 @@ body {
   background: rgba(110, 190, 255, 0.16);
 }
 
-/* header row for sys modals (tag left, action right) */
+/* header row for sys modals */
 .sys-headrow {
   display: flex;
   align-items: center;
@@ -610,7 +587,7 @@ body {
   padding: 8px 12px;
 }
 
-/* Templates modal tweaks */
+/* templates modal tweaks */
 .tmpl-card {
   padding: 18px;
 }
@@ -620,7 +597,6 @@ body {
   gap: 10px;
 }
 
-/* sleek template row that matches sys-line vibe but supports buttons */
 .tmpl-item {
   display: flex;
   align-items: center;
@@ -660,11 +636,6 @@ body {
     justify-content: flex-end;
   }
 }
-
-/* =========================
-   SOLO-STYLE HOVER POPUP
-   line expands -> window
-   ========================= */
 
 .btn,
 .sys-btn {
@@ -739,11 +710,6 @@ body {
   transform: translateY(0px);
 }
 
-/* =========================
-   SOLO-STYLE POPUP OPEN
-   line -> vertical expand
-   ========================= */
-
 .sys-open {
   animation: sysOpen 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -797,11 +763,6 @@ body {
     transform: translateY(0px) scaleY(1);
   }
 }
-
-/* =========================
-   LIST ENTER / EXIT
-   quests + templates
-   ========================= */
 
 .quest-enter {
   animation: itemEnter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -906,14 +867,12 @@ body {
   font-size: 1.35em;
 }
 
-/* allow sys-open/sys-close to be used on normal .card and wrappers too */
 .sys-open,
 .sys-close {
   position: relative;
   transform-origin: top center;
 }
 
-/* CLOSE: vertical collapse */
 .sys-close {
   animation: sysClose 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -947,33 +906,28 @@ body {
 }
 
 .appStage {
-  /* no layout weirdness; just a normal block that we can transform */
   width: 100%;
 }
 
-/* keep your existing sys-open/sys-close exactly as-is */
 .sys-open,
 .sys-close {
   position: relative;
   transform-origin: top center;
 }
 
-/* =========================================================
-   MOBILE/TABLET PATCH
-   - document scrolls naturally
-   - background layers stay fixed (no seams)
-   - no scrolling way past the end
-   ========================================================= */
+/* mobile */
 @media (max-width: 900px) {
   .page {
+    min-height: 100dvh;
     height: auto;
-    min-height: 100svh;
     overflow: visible;
+
     padding: 18px;
-    padding-bottom: 26px;
+    padding-top: calc(18px + env(safe-area-inset-top));
+    padding-bottom: calc(26px + env(safe-area-inset-bottom));
   }
 
-  /* Keep background continuous while the document scrolls */
+  /* keep background continuous while the document scrolls */
   .page::before,
   .page::after,
   .page .shell::before {

@@ -10,7 +10,15 @@ import auth from "./middleware/auth.js";
 import Template from "./models/Template.js";
 
 const app = express();
-app.use(cors());
+
+const allowed = [
+  "http://localhost:5173",
+  "http://localhost:5177",
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
+app.use(cors({ origin: allowed, credentials: true }));
+
 app.use(express.json());
 
 async function connectDB() {
@@ -487,5 +495,5 @@ app.post("/stats/allocate", auth, async (req, res) => {
 const PORT = process.env.PORT || 5050;
 
 connectDB().then(() => {
-    app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+    app.listen(PORT, "0.0.0.0", () => console.log(`API running on http://localhost:${PORT}`));
 });

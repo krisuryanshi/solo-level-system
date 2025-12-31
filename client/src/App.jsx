@@ -2,7 +2,7 @@ import SystemModal from "./SystemModal";
 import "./App.css";
 import { useEffect, useRef, useState } from "react";
 
-const API = "http://localhost:5050";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5050";
 
 const TOKEN_KEY = "solo_token";
 const USER_KEY = "solo_username";
@@ -1126,7 +1126,7 @@ export default function App() {
 
             <div className="sys-body">
               {templates.length === 0 ? (
-                <div className="subtle">No templates yet. Use “Also save as template” when adding a quest.</div>
+                <div className="subtle">No templates yet. Use "Also save as template" when adding a quest.</div>
               ) : (
                 <div className="tmpl-list">
                   {templates.map((t) => (
