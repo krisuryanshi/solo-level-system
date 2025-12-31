@@ -1,17 +1,30 @@
-export default function SystemModal({ open, title, lines = [], onAccept }) {
+// SystemModal.jsx
+export default function SystemModal({
+  open,
+  title,
+  highlight = "",
+  suffix = "",
+  lines = [],
+  onAccept,
+  animClass = "sys-open",
+}) {
   if (!open) return null;
 
   return (
     <div className="sys-overlay" onClick={onAccept}>
-      {/* bg-surface so the level + cursor background can live on the popup */}
       <div
-        className="sys-card sys-open bg-surface"
+        className={`sys-card bg-surface ${animClass}`}
         style={{ "--trackPopup": 1 }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sys-header">
           <div className="sys-tag">NOTIFICATION</div>
-          <div className="sys-title">{title}</div>
+
+          <div className="sys-title">
+            {title}{" "}
+            {highlight ? <span className="sys-highlight">[{highlight}]</span> : null}
+            {suffix}
+          </div>
         </div>
 
         <div className="sys-body">

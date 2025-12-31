@@ -6,13 +6,17 @@
 
 /* page */
 .page {
-  min-height: 100vh;
+  height: 100vh;
+  /*  lock to viewport height */
   padding: 28px;
   color: rgba(240, 248, 255, 0.92);
   background: #0b0f18;
 
   position: relative;
   overflow: hidden;
+
+  display: flex;
+  /*  lets .shell fill the padded area */
 
   /* read level from inline style */
   --lvlRaw: var(--lvlRaw, 1);
@@ -139,10 +143,14 @@
   isolation: isolate;
 
   /* popup-only tuning so the cursor "white" isn't blinding */
-  --popupCoreScale: 0.12;     /* scales the white core */
-  --popupHaloScale: 0.40;     /* scales colored halo strength */
-  --popupRingScale: 0.40;     /* scales ring strength */
-  --popupSizeScale: 0.82;     /* makes the hotspot a bit smaller */
+  --popupCoreScale: 0.12;
+  /* scales the white core */
+  --popupHaloScale: 0.40;
+  /* scales colored halo strength */
+  --popupRingScale: 0.40;
+  /* scales ring strength */
+  --popupSizeScale: 0.82;
+  /* makes the hotspot a bit smaller */
 }
 
 .bg-surface>* {
@@ -233,6 +241,11 @@
   margin: 0 auto;
   position: relative;
   z-index: 1;
+
+  width: 100%;
+  /*  fill horizontally inside .page */
+  height: 100%;
+  /*  fill vertically inside .page */
 }
 
 .topbar {
@@ -397,6 +410,7 @@
 }
 
 @media (max-width: 900px) {
+
   .quickRow,
   .formRow {
     grid-template-columns: 1fr 1fr;
@@ -421,6 +435,7 @@
 }
 
 @media (max-width: 900px) {
+
   .authRow,
   .authRowLoggedIn {
     grid-template-columns: 1fr;
@@ -455,6 +470,16 @@
   border-radius: 12px;
   border: 1px solid rgba(255, 110, 110, 0.25);
   background: rgba(255, 110, 110, 0.08);
+}
+
+.sys-highlight {
+  font-weight: 800;
+  font-style: italic;
+  color: rgba(240, 248, 255, 0.98);
+  text-shadow:
+    0 0 10px rgba(255, 255, 255, 0.55),
+    0 0 22px rgba(140, 210, 255, 0.40),
+    0 0 38px rgba(110, 190, 255, 0.25);
 }
 
 /* System modal */
@@ -673,8 +698,8 @@
   opacity: 1;
 }
 
-.btn > *,
-.sys-btn > * {
+.btn>*,
+.sys-btn>* {
   position: relative;
   z-index: 1;
 }
@@ -716,9 +741,20 @@
 }
 
 @keyframes sysLine {
-  0% { opacity: 0; transform: scaleX(0.25); }
-  40% { opacity: 1; transform: scaleX(1); }
-  100% { opacity: 0; transform: scaleX(1); }
+  0% {
+    opacity: 0;
+    transform: scaleX(0.25);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
 }
 
 @keyframes sysOpen {
@@ -726,10 +762,12 @@
     opacity: 0;
     transform: translateY(6px) scaleY(0.06);
   }
+
   60% {
     opacity: 1;
     transform: translateY(0px) scaleY(1.03);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0px) scaleY(1);
@@ -755,6 +793,7 @@
     transform: translateY(8px) scale(0.98);
     filter: blur(1px);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0px) scale(1);
@@ -779,6 +818,7 @@
     max-height: 200px;
     margin-bottom: 10px;
   }
+
   100% {
     opacity: 0;
     transform: translateY(-6px) scale(0.985);
@@ -789,21 +829,45 @@
 
 /* animations */
 @keyframes bgDrift1 {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  33% { transform: translate3d(calc(var(--float) * 0.6), calc(var(--float) * 0.8), 0) scale(1.04); }
-  66% { transform: translate3d(calc(var(--float) * -0.7), calc(var(--float) * 0.4), 0) scale(1.02); }
-  100% { transform: translate3d(0, 0, 0) scale(1); }
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate3d(calc(var(--float) * 0.6), calc(var(--float) * 0.8), 0) scale(1.04);
+  }
+
+  66% {
+    transform: translate3d(calc(var(--float) * -0.7), calc(var(--float) * 0.4), 0) scale(1.02);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 @keyframes bgDrift2 {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(calc(var(--float) * -0.9), calc(var(--float) * -0.7), 0) scale(1.05); }
-  100% { transform: translate3d(0, 0, 0) scale(1); }
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(calc(var(--float) * -0.9), calc(var(--float) * -0.7), 0) scale(1.05);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 @keyframes auraSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .brand {
@@ -816,4 +880,56 @@
 
 .brand::first-letter {
   font-size: 1.35em;
+}
+
+/* allow sys-open/sys-close to be used on normal .card and wrappers too */
+.sys-open,
+.sys-close {
+  position: relative;
+  transform-origin: top center;
+}
+
+/* CLOSE: vertical collapse */
+.sys-close {
+  animation: sysClose 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sys-close::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 14px;
+  height: 2px;
+  background: rgba(110, 190, 255, 0.65);
+  opacity: 0;
+  transform: scaleX(0.35);
+  transform-origin: center;
+  animation: sysLine 200ms ease both;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes sysClose {
+  0% {
+    opacity: 1;
+    transform: translateY(0px) scaleY(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scaleY(0.06);
+  }
+}
+
+.appStage {
+  /* no layout weirdness; just a normal block that we can transform */
+  width: 100%;
+}
+
+/* keep your existing sys-open/sys-close exactly as-is */
+.sys-open,
+.sys-close {
+  position: relative;
+  transform-origin: top center;
 }

@@ -1,3 +1,4 @@
+// App.jsx
 import SystemModal from "./SystemModal";
 import "./App.css";
 import { useEffect, useRef, useState } from "react";
@@ -6,6 +7,8 @@ const API = "http://localhost:5050";
 
 const TOKEN_KEY = "solo_token";
 const USER_KEY = "solo_username";
+
+const ANIM_MS = 220;
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -66,6 +69,8 @@ export default function App() {
   const templatesCardRef = useRef(null);
   const trackElRef = useRef(null);
 
+  const timersRef = useRef([]);
+
   const [player, setPlayer] = useState(null);
   const [day, setDay] = useState(null);
   const [quests, setQuests] = useState([]);
@@ -73,7 +78,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [templates, setTemplates] = useState([]);
 
-  //  animation state (doesn't change logic)
+  // animation state (doesn't change logic)
   const [leavingQuestIds, setLeavingQuestIds] = useState(() => new Set());
   const [leavingTemplateIds, setLeavingTemplateIds] = useState(() => new Set());
   const [addedQuestIds, setAddedQuestIds] = useState(() => new Set());
@@ -97,9 +102,45 @@ export default function App() {
   // templates modal
   const [templatesOpen, setTemplatesOpen] = useState(false);
 
-  const anyPopupOpen = templatesOpen || !!reward;
+  // UI mode + open/close animation flags
+  const [uiMode, setUiMode] = useState(getToken() ? "app" : "auth"); // "auth" | "app"
+  const [authAnim, setAuthAnim] = useState("sys-open"); // sys-open | sys-close
+  const [appAnim, setAppAnim] = useState("sys-open"); // sys-open | sys-close
 
+  // ✅ popup open/close animation flags
+  const [rewardAnim, setRewardAnim] = useState("sys-open"); // sys-open | sys-close
+  const [templatesAnim, setTemplatesAnim] = useState("sys-open"); // sys-open | sys-close
+
+  const anyPopupOpen = templatesOpen || !!reward;
   const quickMaxMinutes = quickType ? maxMinutesFor(player, quickType) : 25;
+
+  function addTimer(id) {
+    timersRef.current.push(id);
+  }
+
+  function clearTimers() {
+    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current = [];
+  }
+
+  // ✅ animated popup closes (so sys-close can actually play)
+  function closeReward() {
+    setRewardAnim("sys-close");
+    const t = setTimeout(() => {
+      setReward(null);
+      setRewardAnim("sys-open"); // reset for next open
+    }, ANIM_MS);
+    addTimer(t);
+  }
+
+  function closeTemplates() {
+    setTemplatesAnim("sys-close");
+    const t = setTimeout(() => {
+      setTemplatesOpen(false);
+      setTemplatesAnim("sys-open"); // reset for next open
+    }, ANIM_MS);
+    addTimer(t);
+  }
 
   async function login(username, password) {
     setError("");
@@ -120,6 +161,15 @@ export default function App() {
     const uname = (data.username || username || "").toLowerCase();
     localStorage.setItem(USER_KEY, uname);
     setSignedInAs(uname);
+
+    // animate: auth closes -> app opens
+    setAuthAnim("sys-close");
+    const t = setTimeout(() => {
+      setUiMode("app");
+      setAppAnim("sys-open");
+      setAuthAnim("sys-open"); // reset for later
+    }, ANIM_MS);
+    addTimer(t);
 
     setAuthUser("");
     setAuthPassword("");
@@ -148,6 +198,15 @@ export default function App() {
     localStorage.setItem(USER_KEY, uname);
     setSignedInAs(uname);
 
+    // animate: auth closes -> app opens
+    setAuthAnim("sys-close");
+    const t = setTimeout(() => {
+      setUiMode("app");
+      setAppAnim("sys-open");
+      setAuthAnim("sys-open"); // reset for later
+    }, ANIM_MS);
+    addTimer(t);
+
     setAuthUser("");
     setAuthPassword("");
 
@@ -155,7 +214,7 @@ export default function App() {
     await loadTemplates();
   }
 
-  function logout() {
+  function hardLogout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setSignedInAs("");
@@ -175,13 +234,33 @@ export default function App() {
     setQuickMinutes("");
     setQuickSaveAsTemplate(false);
 
-    //  reset animation trackers
+    // reset animation trackers
     setLeavingQuestIds(new Set());
     setLeavingTemplateIds(new Set());
     setAddedQuestIds(new Set());
     setAddedTemplateIds(new Set());
     prevQuestIdsRef.current = new Set();
     prevTemplateIdsRef.current = new Set();
+
+    // reset popup anims too
+    setRewardAnim("sys-open");
+    setTemplatesAnim("sys-open");
+  }
+
+  function logout() {
+    // close popups first so fixed overlays don't fight the stage close
+    setTemplatesOpen(false);
+    setReward(null);
+
+    // close the full UI, then actually logout and show auth
+    setAppAnim("sys-close");
+    const t = setTimeout(() => {
+      hardLogout();
+      setUiMode("auth");
+      setAuthAnim("sys-open");
+      setAppAnim("sys-open"); // reset for next time
+    }, ANIM_MS);
+    addTimer(t);
   }
 
   async function load() {
@@ -253,6 +332,9 @@ export default function App() {
       return;
     }
 
+    // ✅ ensure next open plays open anim
+    setRewardAnim("sys-open");
+
     setReward({
       title: data.quest.title,
       xp: data.reward.xp,
@@ -313,7 +395,6 @@ export default function App() {
 
     setError("");
 
-    //  play exit animation before removing from DOM
     setLeavingQuestIds((prev) => {
       const next = new Set(prev);
       next.add(id);
@@ -338,8 +419,7 @@ export default function App() {
       return;
     }
 
-    // let the animation finish, then update list
-    setTimeout(() => {
+    const t = setTimeout(() => {
       setQuests(data.quests || []);
       setLeavingQuestIds((prev) => {
         const next = new Set(prev);
@@ -347,6 +427,7 @@ export default function App() {
         return next;
       });
     }, 180);
+    addTimer(t);
   }
 
   async function deleteTemplate(id, title) {
@@ -355,7 +436,6 @@ export default function App() {
 
     setError("");
 
-    //  play exit animation before removing from DOM
     setLeavingTemplateIds((prev) => {
       const next = new Set(prev);
       next.add(id);
@@ -380,7 +460,7 @@ export default function App() {
       return;
     }
 
-    setTimeout(() => {
+    const t = setTimeout(() => {
       setTemplates(data.templates || []);
       setLeavingTemplateIds((prev) => {
         const next = new Set(prev);
@@ -388,6 +468,7 @@ export default function App() {
         return next;
       });
     }, 180);
+    addTimer(t);
   }
 
   useEffect(() => {
@@ -395,12 +476,20 @@ export default function App() {
     if (savedUser) setSignedInAs(savedUser);
 
     if (getToken()) {
+      setUiMode("app");
       load();
       loadTemplates();
+    } else {
+      setUiMode("auth");
     }
+
+    return () => {
+      clearTimers();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  //  detect added quests (animate in)
+  // detect added quests (animate in)
   useEffect(() => {
     const nextIds = new Set((quests || []).map((q) => q.id));
     const prevIds = prevQuestIdsRef.current;
@@ -417,20 +506,21 @@ export default function App() {
         return next;
       });
 
-      setTimeout(() => {
+      const t = setTimeout(() => {
         setAddedQuestIds((prev) => {
           const next = new Set(prev);
           added.forEach((id) => next.delete(id));
           return next;
         });
       }, 260);
+      addTimer(t);
     }
 
     prevQuestIdsRef.current = nextIds;
     questsRef.current = quests || [];
   }, [quests]);
 
-  //  detect added templates (animate in)
+  // detect added templates (animate in)
   useEffect(() => {
     const nextIds = new Set((templates || []).map((t) => t._id));
     const prevIds = prevTemplateIdsRef.current;
@@ -447,13 +537,14 @@ export default function App() {
         return next;
       });
 
-      setTimeout(() => {
+      const t = setTimeout(() => {
         setAddedTemplateIds((prev) => {
           const next = new Set(prev);
           added.forEach((id) => next.delete(id));
           return next;
         });
       }, 260);
+      addTimer(t);
     }
 
     prevTemplateIdsRef.current = nextIds;
@@ -468,7 +559,6 @@ export default function App() {
     }
 
     if (reward) {
-      // SystemModal mounts after render, so grab it on the next frame
       const raf = requestAnimationFrame(() => {
         const el = document.querySelector(".sys-card");
         trackElRef.current = el || pageRef.current;
@@ -523,6 +613,7 @@ export default function App() {
   }, []);
 
   const visibleQuests = (quests || []).filter((q) => !q.completed);
+  const isLoggedOut = uiMode === "auth";
 
   return (
     <div
@@ -533,28 +624,23 @@ export default function App() {
         "--trackMain": anyPopupOpen ? 0 : 1,
       }}
     >
-      <div className="shell">
-        <div className="topbar">
-          <div>
-            <div className="brand">Solo Level System</div>
-          </div>
+      <div
+        className="shell"
+        style={
+          isLoggedOut
+            ? {
+              minHeight: "calc(100vh - 56px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }
+            : undefined
+        }
+      >
+        {isLoggedOut ? (
+          <div className={`card ${authAnim}`} style={{ width: "min(900px, 100%)" }}>
+            <h2>ACCOUNT</h2>
 
-          <div className="pill">{day ? `Day: ${day.dayKey}` : "Day not started"}</div>
-        </div>
-
-        <div className="card" style={{ marginBottom: 16 }}>
-          <h2>ACCOUNT</h2>
-
-          {signedInAs ? (
-            <div className="authRow authRowLoggedIn">
-              <div className="subtle" style={{ flex: 1 }}>
-                Signed in as <b>{signedInAs}</b>
-              </div>
-              <button className="btn" onClick={logout}>
-                Logout
-              </button>
-            </div>
-          ) : (
             <div className="authRow">
               <input
                 className="input"
@@ -576,320 +662,362 @@ export default function App() {
                 Register
               </button>
             </div>
-          )}
-        </div>
 
-        <div className="grid">
-          {/* LEFT COLUMN */}
-          <div style={{ display: "grid", gap: 16 }}>
-            <div className="card">
-              <h2>LEVEL</h2>
+            {error && (
+              <div
+                className="err"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <span style={{ flex: 1 }}>{error}</span>
+                <button className="btn" onClick={() => setError("")}>
+                  Got it
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          // IMPORTANT: this stage is the only thing that gets transform animations.
+          // Overlays/modals are rendered OUTSIDE of it so position:fixed stays truly full-screen.
+          <div className={`appStage ${appAnim}`}>
+            <div className="topbar">
+              <div>
+                <div className="brand">Solo Level System</div>
+              </div>
 
-              {player ? (
-                <>
-                  <div style={{ fontSize: 56, fontWeight: 800, lineHeight: 1, marginTop: 6 }}>
-                    {player.level}
-                  </div>
-
-                  <div className="subtle" style={{ marginTop: 10, marginBottom: 8 }}>
-                    {player.xp} / {xpToNext(player.level)} XP
-                  </div>
-
-                  <div className="xpbar" style={{ height: 16 }}>
-                    <div
-                      className="xpfill"
-                      style={{
-                        width: `${pct(player.xp, xpToNext(player.level))}%`,
-                        height: "100%",
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginTop: 14 }}>
-                    <button className="btn" style={{ width: "100%" }} onClick={startDay} disabled={!!day}>
-                      {day ? "Day started" : "Start day"}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="subtle">Loading...</div>
-              )}
-
-              {error && (
-                <div
-                  className="err"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <span style={{ flex: 1 }}>{error}</span>
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      setError("");
-                      load();
-                      loadTemplates();
-                    }}
-                  >
-                    Got it
-                  </button>
-                </div>
-              )}
+              <div className="pill">{day ? `Day: ${day.dayKey}` : "Day not started"}</div>
             </div>
 
-            <div className="card">
-              <h2>STATS</h2>
+            <div className="card" style={{ marginBottom: 16 }}>
+              <h2>ACCOUNT</h2>
 
-              {player ? (
-                <>
-                  <div className="subtle" style={{ marginBottom: 10 }}>
-                    Available Points: {player.statPoints}
-                  </div>
+              <div className="authRow authRowLoggedIn">
+                <div className="subtle" style={{ flex: 1 }}>
+                  Signed in as <b>{signedInAs}</b>
+                </div>
+                <button className="btn" onClick={logout}>
+                  Logout
+                </button>
+              </div>
+            </div>
 
-                  {["physical", "intellectual", "spiritual"].map((s) => (
-                    <div key={s} className="row" style={{ alignItems: "center" }}>
-                      <div style={{ textTransform: "capitalize" }}>{s}</div>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        <div style={{ width: 30, textAlign: "right" }}>{player.stats?.[s] ?? 0}</div>
+            <div className="grid">
+              {/* LEFT COLUMN */}
+              <div style={{ display: "grid", gap: 16 }}>
+                <div className="card">
+                  <h2>LEVEL</h2>
 
-                        <button
-                          className="btn"
-                          disabled={player.statPoints <= 0}
-                          onClick={async () => {
-                            setError("");
-                            const res = await apiFetch("/stats/allocate", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ stat: s, points: 1 }),
-                            });
+                  {player ? (
+                    <>
+                      <div style={{ fontSize: 56, fontWeight: 800, lineHeight: 1, marginTop: 6 }}>
+                        {player.level}
+                      </div>
 
-                            const data = await res.json();
-                            if (!res.ok) {
-                              setError(data.message || "Could not allocate points");
-                              return;
-                            }
-                            await load();
+                      <div className="subtle" style={{ marginTop: 10, marginBottom: 8 }}>
+                        {player.xp} / {xpToNext(player.level)} XP
+                      </div>
+
+                      <div className="xpbar" style={{ height: 16 }}>
+                        <div
+                          className="xpfill"
+                          style={{
+                            width: `${pct(player.xp, xpToNext(player.level))}%`,
+                            height: "100%",
                           }}
-                        >
-                          +1
+                        />
+                      </div>
+
+                      <div style={{ marginTop: 14 }}>
+                        <button className="btn" style={{ width: "100%" }} onClick={startDay} disabled={!!day}>
+                          {day ? "Day started" : "Start day"}
                         </button>
                       </div>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <div className="subtle">Loading stats...</div>
-              )}
-            </div>
-          </div>
+                    </>
+                  ) : (
+                    <div className="subtle">Loading...</div>
+                  )}
 
-          {/* RIGHT COLUMN */}
-          <div className="card">
-            <h2>QUEST BOARD</h2>
-
-            <div className="subtle" style={{ marginBottom: 10 }}>
-              <div>
-                Add quests, complete them, and earn XP to level up. Leveling up updates the UI and grants stat points that
-                raise your max minutes by quest type.
-              </div>
-            </div>
-
-            <div className="hr" />
-
-            <div style={{ marginTop: 18 }}>
-              <div className="subtle" style={{ marginBottom: 10 }}>
-                Today’s Quests:
-              </div>
-
-              {day && (
-                <>
-                  <div className="quickRow" style={{ marginBottom: 10 }}>
-                    <input
-                      className="input"
-                      value={quickTitle}
-                      onChange={(e) => setQuickTitle(e.target.value)}
-                      placeholder="Quest title (e.g., hit legs, CS assignment, pray)"
-                    />
-
-                    <select
-                      className={`select ${quickType === "" ? "selectPlaceholder" : ""}`}
-                      value={quickType}
-                      onChange={(e) => setQuickType(e.target.value)}
+                  {error && (
+                    <div
+                      className="err"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
                     >
-                      <option value="" disabled>
-                        Type
-                      </option>
-                      <option value="physical">physical</option>
-                      <option value="intellectual">intellectual</option>
-                      <option value="spiritual">spiritual</option>
-                    </select>
-
-                    <input
-                      className="input"
-                      type="number"
-                      value={quickMinutes}
-                      min={1}
-                      max={quickMaxMinutes}
-                      placeholder={quickType ? `Min (up to ${quickMaxMinutes})` : "Min"}
-                      onChange={(e) => setQuickMinutes(keepDigits(e.target.value))}
-                    />
-
-                    <button className="btn" onClick={quickAdd} disabled={!quickTitle.trim() || !quickType}>
-                      Add
-                    </button>
-                  </div>
-
-                  {/* only way to create templates now */}
-                  <label
-                    className="subtle"
-                    style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={quickSaveAsTemplate}
-                      onChange={(e) => setQuickSaveAsTemplate(e.target.checked)}
-                    />
-                    Also save as template
-                  </label>
-                </>
-              )}
-
-              {!day ? (
-                <div className="subtle">Start your day to add quests.</div>
-              ) : quests.length === 0 ? (
-                <div className="subtle">No quests added yet.</div>
-              ) : visibleQuests.length === 0 ? (
-                <div className="subtle">No quests left.</div>
-              ) : (
-                visibleQuests.map((q) => (
-                  <div
-                    key={q.id}
-                    className={[
-                      "quest",
-                      addedQuestIds.has(q.id) ? "quest-enter" : "",
-                      leavingQuestIds.has(q.id) ? "quest-exit" : "",
-                    ].join(" ")}
-                  >
-                    <div>
-                      <div className="questTitle">{q.title}</div>
-                      <div className="questMeta">
-                        Type: {q.type} • {q.minutes} min • Reward: +{q.xpReward} XP
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <button className="btn" onClick={() => completeQuest(q.id)}>
-                        Complete
-                      </button>
-                      <button className="btn" onClick={() => deleteQuest(q.id, q.title)}>
-                        Delete
+                      <span style={{ flex: 1 }}>{error}</span>
+                      <button
+                        className="btn"
+                        onClick={() => {
+                          setError("");
+                          load();
+                          loadTemplates();
+                        }}
+                      >
+                        Got it
                       </button>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="hr" />
-
-            <div style={{ marginTop: 16 }}>
-              <button
-                className="btn"
-                style={{ width: "100%" }}
-                onClick={() => setTemplatesOpen(true)}
-                disabled={!signedInAs}
-              >
-                Templates
-              </button>
-
-              {!signedInAs && (
-                <div className="subtle" style={{ marginTop: 10 }}>
-                  Sign in to view templates.
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* UPDATED: Templates Modal uses sys-overlay/sys-card so it matches SystemModal + keeps bg tracking */}
-        {templatesOpen && (
-          <div className="sys-overlay" onClick={() => setTemplatesOpen(false)}>
-            <div
-              onClick={(e) => e.stopPropagation()}
-              ref={templatesCardRef}
-              className="sys-card bg-surface tmpl-card sys-open"
-              style={{
-                width: "min(760px, 100%)",
-                "--trackPopup": 1,
-              }}
-            >
-              <div className="sys-header">
-                <div className="sys-headrow">
-                  <div className="sys-tag">TEMPLATES</div>
-                  <button className="sys-btn sys-btn-ghost" onClick={() => setTemplatesOpen(false)}>
-                    Close
-                  </button>
+                <div className="card">
+                  <h2>STATS</h2>
+
+                  {player ? (
+                    <>
+                      <div className="subtle" style={{ marginBottom: 10 }}>
+                        Available Points: {player.statPoints}
+                      </div>
+
+                      {["physical", "intellectual", "spiritual"].map((s) => (
+                        <div key={s} className="row" style={{ alignItems: "center" }}>
+                          <div style={{ textTransform: "capitalize" }}>{s}</div>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <div style={{ width: 30, textAlign: "right" }}>{player.stats?.[s] ?? 0}</div>
+
+                            <button
+                              className="btn"
+                              disabled={player.statPoints <= 0}
+                              onClick={async () => {
+                                setError("");
+                                const res = await apiFetch("/stats/allocate", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ stat: s, points: 1 }),
+                                });
+
+                                const data = await res.json();
+                                if (!res.ok) {
+                                  setError(data.message || "Could not allocate points");
+                                  return;
+                                }
+                                await load();
+                              }}
+                            >
+                              +1
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="subtle">Loading stats...</div>
+                  )}
                 </div>
               </div>
 
-              <div className="sys-body">
-                {templates.length === 0 ? (
-                  <div className="subtle">No templates yet. Use “Also save as template” when adding a quest.</div>
-                ) : (
-                  <div className="tmpl-list">
-                    {templates.map((t) => (
+              {/* RIGHT COLUMN */}
+              <div className="card">
+                <h2>QUEST BOARD</h2>
+
+                <div className="subtle" style={{ marginBottom: 10 }}>
+                  <div>
+                    Add quests, complete them, and earn XP to level up. Leveling up updates the UI and grants stat points
+                    that raise your max minutes by quest type.
+                  </div>
+                </div>
+
+                <div className="hr" />
+
+                <div style={{ marginTop: 18 }}>
+                  <div className="subtle" style={{ marginBottom: 10 }}>
+                    Today’s Quests:
+                  </div>
+
+                  {day && (
+                    <>
+                      <div className="quickRow" style={{ marginBottom: 10 }}>
+                        <input
+                          className="input"
+                          value={quickTitle}
+                          onChange={(e) => setQuickTitle(e.target.value)}
+                          placeholder="Quest title (e.g., hit legs, CS assignment, pray)"
+                        />
+
+                        <select
+                          className={`select ${quickType === "" ? "selectPlaceholder" : ""}`}
+                          value={quickType}
+                          onChange={(e) => setQuickType(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Type
+                          </option>
+                          <option value="physical">physical</option>
+                          <option value="intellectual">intellectual</option>
+                          <option value="spiritual">spiritual</option>
+                        </select>
+
+                        <input
+                          className="input"
+                          type="number"
+                          value={quickMinutes}
+                          min={1}
+                          max={quickMaxMinutes}
+                          placeholder={quickType ? `Min (up to ${quickMaxMinutes})` : "Min"}
+                          onChange={(e) => setQuickMinutes(keepDigits(e.target.value))}
+                        />
+
+                        <button className="btn" onClick={quickAdd} disabled={!quickTitle.trim() || !quickType}>
+                          Add
+                        </button>
+                      </div>
+
+                      <label
+                        className="subtle"
+                        style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={quickSaveAsTemplate}
+                          onChange={(e) => setQuickSaveAsTemplate(e.target.checked)}
+                        />
+                        Also save as template
+                      </label>
+                    </>
+                  )}
+
+                  {!day ? (
+                    <div className="subtle">Start your day to add quests.</div>
+                  ) : quests.length === 0 ? (
+                    <div className="subtle">No quests added yet.</div>
+                  ) : visibleQuests.length === 0 ? (
+                    <div className="subtle">No quests left.</div>
+                  ) : (
+                    visibleQuests.map((q) => (
                       <div
-                        key={t._id}
+                        key={q.id}
                         className={[
-                          "tmpl-item",
-                          addedTemplateIds.has(t._id) ? "tmpl-enter" : "",
-                          leavingTemplateIds.has(t._id) ? "tmpl-exit" : "",
+                          "quest",
+                          addedQuestIds.has(q.id) ? "quest-enter" : "",
+                          leavingQuestIds.has(q.id) ? "quest-exit" : "",
                         ].join(" ")}
                       >
                         <div>
-                          <div className="tmpl-title">{t.title}</div>
-                          <div className="tmpl-meta">
-                            Type: {t.type} • Default: {t.minutes} min
+                          <div className="questTitle">{q.title}</div>
+                          <div className="questMeta">
+                            Type: {q.type} • {q.minutes} min • Reward: +{q.xpReward} XP
                           </div>
                         </div>
 
-                        <div className="tmpl-actions">
-                          <button className="sys-btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
-                            Add to today
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button className="btn" onClick={() => completeQuest(q.id)}>
+                            Complete
                           </button>
-                          <button className="sys-btn" onClick={() => deleteTemplate(t._id, t.title)}>
+                          <button className="btn" onClick={() => deleteQuest(q.id, q.title)}>
                             Delete
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
+
+                <div className="hr" />
+
+                <div style={{ marginTop: 16 }}>
+                  <button
+                    className="btn"
+                    style={{ width: "100%" }}
+                    onClick={() => {
+                      setTemplatesAnim("sys-open");
+                      setTemplatesOpen(true);
+                    }}
+                  >
+                    Templates
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
-
-        <SystemModal
-          open={!!reward}
-          title="You have completed a Quest."
-          lines={
-            reward
-              ? [
-                  reward.title,
-                  `+${reward.xp} XP`,
-                  ...(reward.leveledUp
-                    ? [`Level Up! +${reward.levelsGained} level${reward.levelsGained === 1 ? "" : "s"}`]
-                    : []),
-                ]
-              : []
-          }
-          onAccept={() => setReward(null)}
-        />
       </div>
+
+      {/* ======= OVERLAYS RENDER OUTSIDE appStage so position:fixed stays true ======= */}
+      {templatesOpen && (
+        <div className="sys-overlay" onClick={closeTemplates}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            ref={templatesCardRef}
+            className={`sys-card bg-surface tmpl-card ${templatesAnim}`}
+            style={{
+              width: "min(760px, 100%)",
+              "--trackPopup": 1,
+            }}
+          >
+            <div className="sys-header">
+              <div className="sys-headrow">
+                <div className="sys-tag">TEMPLATES</div>
+                <button className="sys-btn sys-btn-ghost" onClick={closeTemplates}>
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="sys-body">
+              {templates.length === 0 ? (
+                <div className="subtle">No templates yet. Use “Also save as template” when adding a quest.</div>
+              ) : (
+                <div className="tmpl-list">
+                  {templates.map((t) => (
+                    <div
+                      key={t._id}
+                      className={[
+                        "tmpl-item",
+                        addedTemplateIds.has(t._id) ? "tmpl-enter" : "",
+                        leavingTemplateIds.has(t._id) ? "tmpl-exit" : "",
+                      ].join(" ")}
+                    >
+                      <div>
+                        <div className="tmpl-title">{t.title}</div>
+                        <div className="tmpl-meta">
+                          Type: {t.type} • Default: {t.minutes} min
+                        </div>
+                      </div>
+
+                      <div className="tmpl-actions">
+                        <button className="sys-btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
+                          Add to today
+                        </button>
+                        <button className="sys-btn" onClick={() => deleteTemplate(t._id, t.title)}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <SystemModal
+        open={!!reward}
+        title="You have completed the Quest"
+        highlight={reward?.title || ""}
+        suffix="."
+        lines={
+          reward
+            ? [
+              `+${reward.xp} XP`,
+              ...(reward.leveledUp
+                ? [
+                  `Level Up! +${reward.levelsGained} level${reward.levelsGained === 1 ? "" : "s"}`,
+                  `+${reward.levelsGained * 3} stat points`,
+                ]
+                : []),
+            ]
+            : []
+        }
+        animClass={rewardAnim}
+        onAccept={closeReward}
+      />
     </div>
   );
 }
