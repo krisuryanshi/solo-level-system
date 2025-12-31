@@ -16,7 +16,7 @@ app.use(express.json());
 async function connectDB() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ MongoDB connected");
+    console.log(" MongoDB connected");
   } catch (err) {
     console.error("❌ MongoDB connection error:", err.message);
     process.exit(1);
@@ -110,7 +110,7 @@ function maxMinutesFor(player, type) {
   return clampInt(25 + s * 5, 25, 180);
 }
 
-// ✅ strict minutes validation (reject instead of clamping-to-max)
+//  strict minutes validation (reject instead of clamping-to-max)
 function minutesFor(player, type, minutes) {
   const maxM = maxMinutesFor(player, type);
 

@@ -1,6 +1,6 @@
 import SystemModal from "./SystemModal";
 import "./App.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const API = "http://localhost:5050";
 
@@ -33,14 +33,14 @@ function maxMinutesFor(player, type) {
   return Math.min(180, Math.max(25, 25 + s * 5));
 }
 
-// ✅ allow raw typing (1, 12, 123) without snapping
+//  allow raw typing (1, 12, 123) without snapping
 function keepDigits(s) {
   const str = String(s);
   if (str === "") return "";
   return /^\d+$/.test(str) ? str : "";
 }
 
-// ✅ validate minutes: blank => undefined (backend default), else must be within [1, maxM]
+//  validate minutes: blank => undefined (backend default), else must be within [1, maxM]
 function validateMinutesOrError(raw, maxM) {
   if (raw === "" || raw == null) return { ok: true, minutes: undefined };
 
@@ -62,6 +62,8 @@ function pct(n, d) {
 }
 
 export default function App() {
+  const pageRef = useRef(null);
+
   const [player, setPlayer] = useState(null);
   const [day, setDay] = useState(null);
   const [quests, setQuests] = useState([]);
@@ -261,7 +263,7 @@ export default function App() {
         title: quickTitle,
         type: quickType,
         minutes: check.minutes,
-        saveAsTemplate: quickSaveAsTemplate, // ✅ BACK
+        saveAsTemplate: quickSaveAsTemplate,
       }),
     });
 
@@ -335,10 +337,56 @@ export default function App() {
     }
   }, []);
 
+  //  smooth cursor tracking -> CSS vars (--mx/--my)
+  useEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+
+    let targetX = 0.5;
+    let targetY = 0.4;
+    let curX = 0.5;
+    let curY = 0.4;
+
+    let raf = 0;
+
+    function onMove(e) {
+      const w = window.innerWidth || 1;
+      const h = window.innerHeight || 1;
+      targetX = Math.max(0, Math.min(1, e.clientX / w));
+      targetY = Math.max(0, Math.min(1, e.clientY / h));
+      if (!raf) raf = requestAnimationFrame(tick);
+    }
+
+    function tick() {
+      raf = 0;
+      curX += (targetX - curX) * 0.18;
+      curY += (targetY - curY) * 0.18;
+
+      el.style.setProperty("--mx", `${(curX * 100).toFixed(2)}%`);
+      el.style.setProperty("--my", `${(curY * 100).toFixed(2)}%`);
+    }
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+
+    el.style.setProperty("--mx", "50%");
+    el.style.setProperty("--my", "40%");
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   const visibleQuests = (quests || []).filter((q) => !q.completed);
 
   return (
-    <div className="page">
+    <div
+      className="page"
+      ref={pageRef}
+      style={{
+        "--lvlRaw": player?.level ?? 1,
+      }}
+    >
       <div className="shell">
         <div className="topbar">
           <div>
@@ -346,9 +394,7 @@ export default function App() {
             <div className="subtle">Daily quests, stat growth, and rewards you can actually use.</div>
           </div>
 
-          <div className="pill">
-            {day ? `Day: ${day.dayKey}` : "Day not started"}
-          </div>
+          <div className="pill">{day ? `Day: ${day.dayKey}` : "Day not started"}</div>
         </div>
 
         <div className="card" style={{ marginBottom: 16 }}>
@@ -396,12 +442,10 @@ export default function App() {
 
               {player ? (
                 <>
-                  {/* Big level number */}
                   <div style={{ fontSize: 56, fontWeight: 800, lineHeight: 1, marginTop: 6 }}>
                     {player.level}
                   </div>
 
-                  {/* XP progress */}
                   <div className="subtle" style={{ marginTop: 10, marginBottom: 8 }}>
                     {player.xp} / {xpToNext(player.level)} XP
                   </div>
@@ -509,7 +553,6 @@ export default function App() {
 
             <div className="hr" />
 
-            {/* Today */}
             <div style={{ marginTop: 18 }}>
               <div className="subtle" style={{ marginBottom: 10 }}>
                 Today’s quests
@@ -553,7 +596,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* ✅ BACK: only way to create templates now */}
                   <label
                     className="subtle"
                     style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}
@@ -599,7 +641,6 @@ export default function App() {
 
             <div className="hr" />
 
-            {/* ✅ REPLACEMENT: big button opens templates modal */}
             <div style={{ marginTop: 16 }}>
               <button
                 className="btn"
@@ -621,7 +662,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* ✅ Templates Modal (quest-complete style but with list/actions) */}
         {templatesOpen && (
           <div
             onClick={() => setTemplatesOpen(false)}
@@ -661,9 +701,7 @@ export default function App() {
               <div className="hr" style={{ marginTop: 12, marginBottom: 12 }} />
 
               {templates.length === 0 ? (
-                <div className="subtle">
-                  No templates yet. Use “Also save as template” when adding a quest.
-                </div>
+                <div className="subtle">No templates yet. Use “Also save as template” when adding a quest.</div>
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                   {templates.map((t) => (
@@ -697,12 +735,12 @@ export default function App() {
           lines={
             reward
               ? [
-                reward.title,
-                `+${reward.xp} XP`,
-                ...(reward.leveledUp
-                  ? [`Level Up! +${reward.levelsGained} level${reward.levelsGained === 1 ? "" : "s"}`]
-                  : []),
-              ]
+                  reward.title,
+                  `+${reward.xp} XP`,
+                  ...(reward.leveledUp
+                    ? [`Level Up! +${reward.levelsGained} level${reward.levelsGained === 1 ? "" : "s"}`]
+                    : []),
+                ]
               : []
           }
           onAccept={() => setReward(null)}
