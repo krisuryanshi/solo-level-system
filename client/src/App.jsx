@@ -1,6 +1,6 @@
 import SystemModal from "./SystemModal";
 import "./App.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const API = "http://localhost:5050";
 
@@ -33,14 +33,14 @@ function maxMinutesFor(player, type) {
   return Math.min(180, Math.max(25, 25 + s * 5));
 }
 
-//  allow raw typing (1, 12, 123) without snapping
+// allow raw typing (1, 12, 123) without snapping
 function keepDigits(s) {
   const str = String(s);
   if (str === "") return "";
   return /^\d+$/.test(str) ? str : "";
 }
 
-//  validate minutes: blank => undefined (backend default), else must be within [1, maxM]
+// validate minutes: blank => undefined (backend default), else must be within [1, maxM]
 function validateMinutesOrError(raw, maxM) {
   if (raw === "" || raw == null) return { ok: true, minutes: undefined };
 
@@ -63,6 +63,8 @@ function pct(n, d) {
 
 export default function App() {
   const pageRef = useRef(null);
+  const templatesCardRef = useRef(null);
+  const trackElRef = useRef(null);
 
   const [player, setPlayer] = useState(null);
   const [day, setDay] = useState(null);
@@ -84,6 +86,8 @@ export default function App() {
 
   // templates modal
   const [templatesOpen, setTemplatesOpen] = useState(false);
+
+  const anyPopupOpen = templatesOpen || !!reward;
 
   const quickMaxMinutes = quickType ? maxMinutesFor(player, quickType) : 25;
 
@@ -337,10 +341,29 @@ export default function App() {
     }
   }, []);
 
-  //  smooth cursor tracking -> CSS vars (--mx/--my)
+  // when a popup opens, move the mouse-tracking target from the main page to the popup
   useEffect(() => {
-    const el = pageRef.current;
-    if (!el) return;
+    if (templatesOpen && templatesCardRef.current) {
+      trackElRef.current = templatesCardRef.current;
+      return;
+    }
+
+    if (reward) {
+      // SystemModal mounts after render, so grab it on the next frame
+      const raf = requestAnimationFrame(() => {
+        const el = document.querySelector(".sys-card");
+        trackElRef.current = el || pageRef.current;
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+
+    trackElRef.current = pageRef.current;
+  }, [templatesOpen, reward]);
+
+  // smooth cursor tracking -> CSS vars (--mx/--my)
+  useEffect(() => {
+    const fallbackEl = pageRef.current;
+    if (!fallbackEl) return;
 
     let targetX = 0.5;
     let targetY = 0.4;
@@ -362,14 +385,17 @@ export default function App() {
       curX += (targetX - curX) * 0.18;
       curY += (targetY - curY) * 0.18;
 
-      el.style.setProperty("--mx", `${(curX * 100).toFixed(2)}%`);
-      el.style.setProperty("--my", `${(curY * 100).toFixed(2)}%`);
+      const el = trackElRef.current || fallbackEl;
+      if (el) {
+        el.style.setProperty("--mx", `${(curX * 100).toFixed(2)}%`);
+        el.style.setProperty("--my", `${(curY * 100).toFixed(2)}%`);
+      }
     }
 
     window.addEventListener("mousemove", onMove, { passive: true });
 
-    el.style.setProperty("--mx", "50%");
-    el.style.setProperty("--my", "40%");
+    fallbackEl.style.setProperty("--mx", "50%");
+    fallbackEl.style.setProperty("--my", "40%");
 
     return () => {
       window.removeEventListener("mousemove", onMove);
@@ -385,13 +411,13 @@ export default function App() {
       ref={pageRef}
       style={{
         "--lvlRaw": player?.level ?? 1,
+        "--trackMain": anyPopupOpen ? 0 : 1,
       }}
     >
       <div className="shell">
         <div className="topbar">
           <div>
             <div className="brand">Solo Level System</div>
-            <div className="subtle">Daily quests, stat growth, and rewards you can actually use.</div>
           </div>
 
           <div className="pill">{day ? `Day: ${day.dayKey}` : "Day not started"}</div>
@@ -501,7 +527,7 @@ export default function App() {
               {player ? (
                 <>
                   <div className="subtle" style={{ marginBottom: 10 }}>
-                    Unspent points: {player.statPoints}
+                    Stat Points: {player.statPoints}
                   </div>
 
                   {["physical", "intellectual", "spiritual"].map((s) => (
@@ -546,16 +572,14 @@ export default function App() {
             <h2>QUEST BOARD</h2>
 
             <div className="subtle" style={{ marginBottom: 10 }}>
-              {day
-                ? "Add quests from templates, then complete them to earn rewards."
-                : "Start your day, then add quests from your templates."}
+              <div>Add quests, complete them, and earn XP to level up. Leveling up updates the UI and grants stat points that raise your max minutes by quest type.</div>
             </div>
 
             <div className="hr" />
 
             <div style={{ marginTop: 18 }}>
               <div className="subtle" style={{ marginBottom: 10 }}>
-                Today’s quests
+                Today’s Quests:
               </div>
 
               {day && (
@@ -565,7 +589,7 @@ export default function App() {
                       className="input"
                       value={quickTitle}
                       onChange={(e) => setQuickTitle(e.target.value)}
-                      placeholder="Quest title (e.g., hit legs, CS assignment, pray)"
+                      placeholder="Quest title (e.g., Hit legs, Math assignment, Prayer)"
                     />
 
                     <select
@@ -596,6 +620,7 @@ export default function App() {
                     </button>
                   </div>
 
+                  {/* only way to create templates now */}
                   <label
                     className="subtle"
                     style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}
@@ -613,9 +638,9 @@ export default function App() {
               {!day ? (
                 <div className="subtle">Start your day to add quests.</div>
               ) : quests.length === 0 ? (
-                <div className="subtle">No quests added yet. Add one from your templates.</div>
+                <div className="subtle">No quests added yet.</div>
               ) : visibleQuests.length === 0 ? (
-                <div className="subtle">No quests left. You’re done for today.</div>
+                <div className="subtle">No quests left.</div>
               ) : (
                 visibleQuests.map((q) => (
                   <div key={q.id} className="quest">
@@ -651,80 +676,65 @@ export default function App() {
                 Templates
               </button>
 
-              {!signedInAs && <div className="subtle" style={{ marginTop: 10 }}>Sign in to view templates.</div>}
-
-              {signedInAs && templates.length === 0 && (
+              {!signedInAs && (
                 <div className="subtle" style={{ marginTop: 10 }}>
-                  No templates yet. Use “Also save as template” when adding a quest.
+                  Sign in to view templates.
                 </div>
               )}
+
             </div>
           </div>
         </div>
 
+        {/* UPDATED: Templates Modal uses sys-overlay/sys-card so it matches SystemModal + keeps bg tracking */}
         {templatesOpen && (
-          <div
-            onClick={() => setTemplatesOpen(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.55)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 16,
-              zIndex: 9999,
-            }}
-          >
+          <div className="sys-overlay" onClick={() => setTemplatesOpen(false)}>
             <div
               onClick={(e) => e.stopPropagation()}
+              ref={templatesCardRef}
+              className="sys-card bg-surface tmpl-card"
               style={{
                 width: "min(760px, 100%)",
-                borderRadius: 16,
-                background: "#0b1220",
-                border: "1px solid rgba(255,255,255,0.08)",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-                padding: 16,
+                "--trackPopup": 1,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                <div style={{ fontWeight: 700, letterSpacing: 0.4 }}>Templates</div>
-                <button className="btn" onClick={() => setTemplatesOpen(false)}>
-                  Close
-                </button>
+              <div className="sys-header">
+                <div className="sys-headrow">
+                  <div className="sys-tag">TEMPLATES</div>
+                  <button className="sys-btn sys-btn-ghost" onClick={() => setTemplatesOpen(false)}>
+                    Close
+                  </button>
+                </div>
+
               </div>
 
-              <div className="subtle" style={{ marginTop: 8 }}>
-                Add templates to today, or delete ones you don’t use anymore.
-              </div>
+              <div className="sys-body">
+                {templates.length === 0 ? (
+                  <div className="subtle">No templates yet. Use “Also save as template” when adding a quest.</div>
+                ) : (
+                  <div className="tmpl-list">
+                    {templates.map((t) => (
+                      <div key={t._id} className="tmpl-item">
+                        <div>
+                          <div className="tmpl-title">{t.title}</div>
+                          <div className="tmpl-meta">
+                            Type: {t.type} • Default: {t.minutes} min
+                          </div>
+                        </div>
 
-              <div className="hr" style={{ marginTop: 12, marginBottom: 12 }} />
-
-              {templates.length === 0 ? (
-                <div className="subtle">No templates yet. Use “Also save as template” when adding a quest.</div>
-              ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {templates.map((t) => (
-                    <div key={t._id} className="quest">
-                      <div>
-                        <div className="questTitle">{t.title}</div>
-                        <div className="questMeta">
-                          Type: {t.type} • Default: {t.minutes} min
+                        <div className="tmpl-actions">
+                          <button className="sys-btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
+                            Add to today
+                          </button>
+                          <button className="sys-btn" onClick={() => deleteTemplate(t._id, t.title)}>
+                            Delete
+                          </button>
                         </div>
                       </div>
-
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <button className="btn" disabled={!day} onClick={() => addFromTemplate(t._id)}>
-                          Add to today
-                        </button>
-                        <button className="btn" onClick={() => deleteTemplate(t._id, t.title)}>
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

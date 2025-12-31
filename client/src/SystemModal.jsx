@@ -3,7 +3,12 @@ export default function SystemModal({ open, title, lines = [], onAccept }) {
 
   return (
     <div className="sys-overlay" onClick={onAccept}>
-      <div className="sys-card" onClick={(e) => e.stopPropagation()}>
+      {/* bg-surface so the level + cursor background can live on the popup */}
+      <div
+        className="sys-card bg-surface"
+        style={{ "--trackPopup": 1 }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="sys-header">
           <div className="sys-tag">NOTIFICATION</div>
           <div className="sys-title">{title}</div>

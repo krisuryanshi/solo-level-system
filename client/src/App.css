@@ -51,9 +51,12 @@
   --stepAfter20: clamp(0, calc(var(--lvlRaw) - 20), 1);
 
   /*  cursor-follow becomes much more visual (but only after 20 now) */
-  --cursorA: calc(var(--stepAfter20) * 0.80); /* white core only after 20 */
-  --cursorB: calc((0.06 + var(--tc) * 0.55) * var(--stepAfter20)); /* colored halo gated */
-  --cursorC: calc((0.03 + var(--tc) * 0.40) * var(--stepAfter20)); /* ring gated */
+  --cursorA: calc(var(--stepAfter20) * 0.80);
+  /* white core only after 20 */
+  --cursorB: calc((0.06 + var(--tc) * 0.55) * var(--stepAfter20));
+  /* colored halo gated */
+  --cursorC: calc((0.03 + var(--tc) * 0.40) * var(--stepAfter20));
+  /* ring gated */
 
   --cursorSizeA: calc(22% + var(--tc) * 18%);
   --cursorSizeB: calc(34% + var(--tc) * 24%);
@@ -120,9 +123,82 @@
   transform: translate3d(0, 0, 0);
   animation: bgDrift2 var(--dur2) ease-in-out infinite;
 
-  /*  the hard gate */
-  opacity: var(--stepAfter20);
+  /*  the hard gate + allow turning main tracking off when a popup is open */
+  opacity: calc(var(--stepAfter20) * var(--trackMain, 1));
   transition: opacity 600ms ease;
+}
+
+/*
+  Reuse the SAME level-based background on popups.
+  - Add className="bg-surface" to any popup card you want to carry the effect.
+  - Set style={{ "--trackPopup": 1 }} on the popup card to enable cursor tracking there.
+*/
+.bg-surface {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.bg-surface>* {
+  position: relative;
+  z-index: 1;
+}
+
+/* popup drifting blobs */
+.bg-surface::before {
+  content: "";
+  position: absolute;
+  inset: -140px;
+  pointer-events: none;
+  z-index: 0;
+
+  background:
+    radial-gradient(circle at 22% 18%,
+      rgba(var(--c1r), var(--c1g), var(--c1b), var(--blobA)),
+      transparent 55%),
+    radial-gradient(circle at 78% 22%,
+      rgba(var(--c2r), var(--c2g), var(--c2b), var(--blobB)),
+      transparent 58%),
+    radial-gradient(circle at 62% 82%,
+      rgba(var(--c3r), var(--c3g), var(--c3b), var(--blobC)),
+      transparent 62%);
+
+  filter: blur(var(--blur1));
+  transform: translate3d(0, 0, 0);
+  animation: bgDrift1 var(--dur1) ease-in-out infinite;
+  opacity: 0.95;
+}
+
+/* popup cursor-follow lighting (only when popup is open + after 20) */
+.bg-surface::after {
+  content: "";
+  position: absolute;
+  inset: -180px;
+  pointer-events: none;
+  z-index: 0;
+
+  background:
+    radial-gradient(circle at var(--mx) var(--my),
+      rgba(255, 255, 255, var(--cursorA)),
+      transparent var(--cursorSizeC)),
+    radial-gradient(circle at var(--mx) var(--my),
+      rgba(var(--c1r), var(--c1g), var(--c1b), var(--cursorC)) 0%,
+      rgba(var(--c1r), var(--c1g), var(--c1b), 0) calc(var(--cursorSizeC) + 6%)),
+    radial-gradient(circle at var(--mx) var(--my),
+      rgba(var(--c2r), var(--c2g), var(--c2b), var(--cursorB)),
+      transparent var(--cursorSizeA)),
+    radial-gradient(circle at calc(var(--mx) + 7%) calc(var(--my) - 7%),
+      rgba(var(--c3r), var(--c3g), var(--c3b), calc(var(--cursorB) * 0.75)),
+      transparent var(--cursorSizeB));
+
+  mix-blend-mode: screen;
+  filter: blur(var(--blur2));
+  transform: translate3d(0, 0, 0);
+  animation: bgDrift2 var(--dur2) ease-in-out infinite;
+
+  /* hard gate + only show while popup is the active tracking surface */
+  opacity: calc(var(--stepAfter20) * var(--trackPopup, 0));
+  transition: opacity 300ms ease;
 }
 
 /* Layer 3: rotating aura ring */
@@ -308,13 +384,14 @@
   align-items: center;
 }
 
-.quickRow > *,
-.formRow > * {
+.quickRow>*,
+.formRow>* {
   width: 100%;
   min-width: 0;
 }
 
 @media (max-width: 900px) {
+
   .quickRow,
   .formRow {
     grid-template-columns: 1fr 1fr;
@@ -329,7 +406,7 @@
   align-items: center;
 }
 
-.authRow > * {
+.authRow>* {
   width: 100%;
   min-width: 0;
 }
@@ -339,6 +416,7 @@
 }
 
 @media (max-width: 900px) {
+
   .authRow,
   .authRowLoggedIn {
     grid-template-columns: 1fr;
@@ -466,17 +544,83 @@
   background: rgba(110, 190, 255, 0.16);
 }
 
+/* header row for sys modals (tag left, action right) */
+.sys-headrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sys-btn-ghost {
+  padding: 8px 12px;
+}
+
+/* Templates modal tweaks */
+.tmpl-card {
+  padding: 18px;
+}
+
+.tmpl-list {
+  display: grid;
+  gap: 10px;
+}
+
+/* sleek template row that matches sys-line vibe but supports buttons */
+.tmpl-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  padding: 12px 12px;
+  border: 1px solid rgba(110, 190, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tmpl-title {
+  font-weight: 700;
+}
+
+.tmpl-meta {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+.tmpl-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+  .tmpl-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tmpl-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 /* animations */
 @keyframes bgDrift1 {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
   }
+
   33% {
     transform: translate3d(calc(var(--float) * 0.6), calc(var(--float) * 0.8), 0) scale(1.04);
   }
+
   66% {
     transform: translate3d(calc(var(--float) * -0.7), calc(var(--float) * 0.4), 0) scale(1.02);
   }
+
   100% {
     transform: translate3d(0, 0, 0) scale(1);
   }
@@ -486,9 +630,11 @@
   0% {
     transform: translate3d(0, 0, 0) scale(1);
   }
+
   50% {
     transform: translate3d(calc(var(--float) * -0.9), calc(var(--float) * -0.7), 0) scale(1.05);
   }
+
   100% {
     transform: translate3d(0, 0, 0) scale(1);
   }
@@ -498,7 +644,20 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
+}
+
+.brand {
+  font-family: "UnifrakturCook", serif;
+  font-size: 46px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.brand::first-letter {
+  font-size: 1.35em;
 }
