@@ -23,7 +23,13 @@ async function connectDB() {
     }
 }
 
-// ---------- helpers ----------
+process.env.TZ = "America/Toronto";
+
+// daily reset boundary time
+const RESET_HOUR = 0;
+const RESET_MINUTE = 0;
+
+// helpers
 function xpToNext(level) {
     return 100 + (level - 1) * 25;
 }
@@ -59,10 +65,19 @@ function applyRewards(player, { xp = 0 }) {
 }
 
 function makeDayKey(date = new Date()) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    const d = new Date(date);
+
+    const h = d.getHours();
+    const m = d.getMinutes();
+
+    if (h < RESET_HOUR || (h === RESET_HOUR && m < RESET_MINUTE)) {
+        d.setDate(d.getDate() - 1);
+    }
+
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    const da = String(d.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${da}`;
 }
 
 function makeSalt() {
@@ -110,7 +125,6 @@ function maxMinutesFor(player, type) {
     return clampInt(25 + s * 5, 25, 180);
 }
 
-//  strict minutes validation (reject instead of clamping-to-max)
 function minutesFor(player, type, minutes) {
     const maxM = maxMinutesFor(player, type);
 
@@ -142,12 +156,11 @@ function rewardsFor(player, type, minutes) {
     };
 }
 
-// ---------- routes ----------
+// routes
 app.get("/health", (req, res) => {
     res.json({ ok: true, message: "server is running" });
 });
 
-// ---- AUTH ----
 app.post("/auth/register", async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -227,7 +240,6 @@ app.post("/auth/login", async (req, res) => {
     }
 });
 
-// ---- Templates ----
 app.get("/templates", auth, async (req, res) => {
     const templates = await Template.find({ userId: req.userId, archived: false }).sort({ createdAt: -1 });
     res.json({ ok: true, templates });

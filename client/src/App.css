@@ -4,6 +4,15 @@
   box-sizing: border-box;
 }
 
+/* ✅ Needed: remove default margins + ensure no background seams */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: #0b0f18;
+  overflow-x: hidden;
+}
+
 /* page */
 .page {
   height: 100vh;
@@ -13,7 +22,13 @@
   background: #0b0f18;
 
   position: relative;
-  overflow: hidden;
+
+  /* ✅ Desktop stays “locked”, BUT if zoom makes content overflow, you can scroll */
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  /* prevents “scroll past the end” feel */
+  overscroll-behavior: contain;
 
   display: flex;
   /*  lets .shell fill the padded area */
@@ -79,7 +94,7 @@
 /* Layer 1: big drifting blobs */
 .page::before {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: -180px;
   pointer-events: none;
   z-index: 0;
@@ -103,7 +118,7 @@
 /* Layer 2:  cursor-follow lighting (COMPLETELY hidden until 21+) */
 .page::after {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: -220px;
   pointer-events: none;
   z-index: 0;
@@ -218,7 +233,7 @@
 /* Layer 3: rotating aura ring */
 .page .shell::before {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: -260px;
   pointer-events: none;
   z-index: 0;
@@ -243,9 +258,18 @@
   z-index: 1;
 
   width: 100%;
-  /*  fill horizontally inside .page */
   height: 100%;
-  /*  fill vertically inside .page */
+
+  /* IMPORTANT: do NOT clip the background layers */
+  overflow: visible;
+}
+
+/* ✅ tiny spacer so 100% zoom has the same “extra slack” as 90% */
+.shell::after {
+  content: "";
+  display: block;
+  height: 26px;
+  /* tweak 18–40 if you want */
 }
 
 .topbar {
@@ -932,4 +956,44 @@
 .sys-close {
   position: relative;
   transform-origin: top center;
+}
+
+/* =========================================================
+   MOBILE/TABLET PATCH
+   - document scrolls naturally
+   - background layers stay fixed (no seams)
+   - no scrolling way past the end
+   ========================================================= */
+@media (max-width: 900px) {
+  .page {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+    padding: 18px;
+    padding-bottom: 26px;
+  }
+
+  /* Keep background continuous while the document scrolls */
+  .page::before,
+  .page::after,
+  .page .shell::before {
+    position: fixed;
+  }
+
+  .shell {
+    height: auto;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .brand {
+    font-size: clamp(38px, 12vw, 46px);
+    line-height: 0.82;
+    letter-spacing: 0.03em;
+  }
 }

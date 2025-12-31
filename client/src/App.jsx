@@ -1,4 +1,3 @@
-// App.jsx
 import SystemModal from "./SystemModal";
 import "./App.css";
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +8,12 @@ const TOKEN_KEY = "solo_token";
 const USER_KEY = "solo_username";
 
 const ANIM_MS = 220;
+
+const TRIGGER_HOUR = 0;
+const TRIGGER_MINUTE = 0;
+
+const DAYKEY_KEY = "solo_last_daykey";
+const STARTED_DAYKEY_KEY = "solo_started_daykey";
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -43,7 +48,6 @@ function keepDigits(s) {
   return /^\d+$/.test(str) ? str : "";
 }
 
-// validate minutes: blank => undefined (backend default), else must be within [1, maxM]
 function validateMinutesOrError(raw, maxM) {
   if (raw === "" || raw == null) return { ok: true, minutes: undefined };
 
@@ -64,12 +68,29 @@ function pct(n, d) {
   return Math.max(0, Math.min(100, (n / d) * 100));
 }
 
+function clientDayKey(date = new Date()) {
+  const d = new Date(date);
+
+  const h = d.getHours();
+  const m = d.getMinutes();
+
+  if (h < TRIGGER_HOUR || (h === TRIGGER_HOUR && m < TRIGGER_MINUTE)) {
+    d.setDate(d.getDate() - 1);
+  }
+
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
+}
+
 export default function App() {
   const pageRef = useRef(null);
   const templatesCardRef = useRef(null);
   const trackElRef = useRef(null);
 
   const timersRef = useRef([]);
+  const lastClientDayKeyRef = useRef(localStorage.getItem(DAYKEY_KEY) || clientDayKey());
 
   const [player, setPlayer] = useState(null);
   const [day, setDay] = useState(null);
@@ -78,7 +99,12 @@ export default function App() {
   const [error, setError] = useState("");
   const [templates, setTemplates] = useState([]);
 
-  // animation state (doesn't change logic)
+  const dayRef = useRef(null);
+  useEffect(() => {
+    dayRef.current = day;
+  }, [day]);
+
+  // animation state
   const [leavingQuestIds, setLeavingQuestIds] = useState(() => new Set());
   const [leavingTemplateIds, setLeavingTemplateIds] = useState(() => new Set());
   const [addedQuestIds, setAddedQuestIds] = useState(() => new Set());
@@ -107,11 +133,13 @@ export default function App() {
   const [authAnim, setAuthAnim] = useState("sys-open"); // sys-open | sys-close
   const [appAnim, setAppAnim] = useState("sys-open"); // sys-open | sys-close
 
-  // ✅ popup open/close animation flags
   const [rewardAnim, setRewardAnim] = useState("sys-open"); // sys-open | sys-close
   const [templatesAnim, setTemplatesAnim] = useState("sys-open"); // sys-open | sys-close
 
-  const anyPopupOpen = templatesOpen || !!reward;
+  const [newDayNotice, setNewDayNotice] = useState(false);
+  const [newDayAnim, setNewDayAnim] = useState("sys-open");
+
+  const anyPopupOpen = templatesOpen || !!reward || newDayNotice;
   const quickMaxMinutes = quickType ? maxMinutesFor(player, quickType) : 25;
 
   function addTimer(id) {
@@ -123,7 +151,6 @@ export default function App() {
     timersRef.current = [];
   }
 
-  // ✅ animated popup closes (so sys-close can actually play)
   function closeReward() {
     setRewardAnim("sys-close");
     const t = setTimeout(() => {
@@ -140,6 +167,20 @@ export default function App() {
       setTemplatesAnim("sys-open"); // reset for next open
     }, ANIM_MS);
     addTimer(t);
+  }
+
+  function closeNewDay() {
+    setNewDayAnim("sys-close");
+    const t = setTimeout(() => {
+      setNewDayNotice(false);
+      setNewDayAnim("sys-open");
+    }, ANIM_MS);
+    addTimer(t);
+  }
+
+  function refreshTab() {
+    // no close animation needed, but it's fine if it flashes
+    window.location.reload();
   }
 
   async function login(username, password) {
@@ -162,7 +203,6 @@ export default function App() {
     localStorage.setItem(USER_KEY, uname);
     setSignedInAs(uname);
 
-    // animate: auth closes -> app opens
     setAuthAnim("sys-close");
     const t = setTimeout(() => {
       setUiMode("app");
@@ -173,6 +213,10 @@ export default function App() {
 
     setAuthUser("");
     setAuthPassword("");
+
+    const k = clientDayKey();
+    lastClientDayKeyRef.current = k;
+    localStorage.setItem(DAYKEY_KEY, k);
 
     await load();
     await loadTemplates();
@@ -198,7 +242,6 @@ export default function App() {
     localStorage.setItem(USER_KEY, uname);
     setSignedInAs(uname);
 
-    // animate: auth closes -> app opens
     setAuthAnim("sys-close");
     const t = setTimeout(() => {
       setUiMode("app");
@@ -210,6 +253,10 @@ export default function App() {
     setAuthUser("");
     setAuthPassword("");
 
+    const k = clientDayKey();
+    lastClientDayKeyRef.current = k;
+    localStorage.setItem(DAYKEY_KEY, k);
+
     await load();
     await loadTemplates();
   }
@@ -217,6 +264,10 @@ export default function App() {
   function hardLogout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+
+    // keep DAYKEY_KEY so the boundary stays consistent, but clear started-day marker
+    localStorage.removeItem(STARTED_DAYKEY_KEY);
+
     setSignedInAs("");
 
     setAuthUser("");
@@ -245,12 +296,21 @@ export default function App() {
     // reset popup anims too
     setRewardAnim("sys-open");
     setTemplatesAnim("sys-open");
+
+    // reset new day noti
+    setNewDayNotice(false);
+    setNewDayAnim("sys-open");
+
+    const k = clientDayKey();
+    lastClientDayKeyRef.current = k;
+    localStorage.setItem(DAYKEY_KEY, k);
   }
 
   function logout() {
     // close popups first so fixed overlays don't fight the stage close
     setTemplatesOpen(false);
     setReward(null);
+    setNewDayNotice(false);
 
     // close the full UI, then actually logout and show auth
     setAppAnim("sys-close");
@@ -276,6 +336,11 @@ export default function App() {
     const d = await dRes.json();
     setDay(d.activeDay);
     setQuests(d.quests || []);
+
+    // if backend says there is no active day, clear the "started" marker
+    if (!d.activeDay?.dayKey) {
+      localStorage.removeItem(STARTED_DAYKEY_KEY);
+    }
   }
 
   async function loadTemplates() {
@@ -317,6 +382,12 @@ export default function App() {
       setError(data.message || "Could not start day");
       return;
     }
+
+    // mark that user started the current dayKey
+    if (data.activeDay?.dayKey) {
+      localStorage.setItem(STARTED_DAYKEY_KEY, data.activeDay.dayKey);
+    }
+
     await load();
   }
 
@@ -332,7 +403,7 @@ export default function App() {
       return;
     }
 
-    // ✅ ensure next open plays open anim
+    // ensure next open plays open anim
     setRewardAnim("sys-open");
 
     setReward({
@@ -390,7 +461,7 @@ export default function App() {
   }
 
   async function deleteQuest(id, title) {
-    const ok = window.confirm(`Delete quest "${title}"?\n\nThis can’t be undone.`);
+    const ok = window.confirm(`Delete quest "${title}"?\n\nThis can't be undone.`);
     if (!ok) return;
 
     setError("");
@@ -431,7 +502,7 @@ export default function App() {
   }
 
   async function deleteTemplate(id, title) {
-    const ok = window.confirm(`Delete template "${title}"?\n\nThis can’t be undone.`);
+    const ok = window.confirm(`Delete template "${title}"?\n\nThis can't be undone.`);
     if (!ok) return;
 
     setError("");
@@ -475,6 +546,11 @@ export default function App() {
     const savedUser = localStorage.getItem(USER_KEY);
     if (savedUser) setSignedInAs(savedUser);
 
+    // ensure DAYKEY_KEY exists on first load
+    const initKey = localStorage.getItem(DAYKEY_KEY) || clientDayKey();
+    lastClientDayKeyRef.current = initKey;
+    localStorage.setItem(DAYKEY_KEY, initKey);
+
     if (getToken()) {
       setUiMode("app");
       load();
@@ -486,10 +562,102 @@ export default function App() {
     return () => {
       clearTimers();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // detect added quests (animate in)
+  // if user refreshes AFTER the reset time, still show the noti
+  useEffect(() => {
+    if (!getToken()) return;
+
+    const stored = localStorage.getItem(DAYKEY_KEY) || clientDayKey();
+    const nowKey = clientDayKey();
+    const startedKey = localStorage.getItem(STARTED_DAYKEY_KEY);
+
+    if (stored !== nowKey && startedKey && startedKey === stored) {
+      localStorage.setItem(DAYKEY_KEY, nowKey);
+      lastClientDayKeyRef.current = nowKey;
+
+      setNewDayAnim("sys-open");
+      setNewDayNotice(true);
+    } else {
+      localStorage.setItem(DAYKEY_KEY, nowKey);
+      lastClientDayKeyRef.current = nowKey;
+    }
+  }, []);
+
+  // refresh around the daily backend reset time
+  useEffect(() => {
+    if (uiMode !== "app") return;
+
+    let alive = true;
+    let timeoutId = null;
+    let intervalId = null;
+
+    function shouldShowNewDay(prevKey) {
+      // only show if user had started THAT day
+      const startedKey = localStorage.getItem(STARTED_DAYKEY_KEY);
+      return !!startedKey && startedKey === prevKey;
+    }
+
+    async function refreshIfNewDay() {
+      const k = clientDayKey();
+      if (k !== lastClientDayKeyRef.current) {
+        const prev = lastClientDayKeyRef.current;
+
+        lastClientDayKeyRef.current = k;
+        localStorage.setItem(DAYKEY_KEY, k);
+
+        if (shouldShowNewDay(prev) && !!dayRef.current?.dayKey) {
+          setNewDayAnim("sys-open");
+          setNewDayNotice(true);
+          return;
+        }
+
+        await load();
+        await loadTemplates();
+      }
+    }
+
+    function msUntilNextTrigger() {
+      const now = new Date();
+      const next = new Date(now);
+
+      next.setHours(TRIGGER_HOUR, TRIGGER_MINUTE, 1, 0);
+      if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+
+      return next.getTime() - now.getTime();
+    }
+
+    function scheduleNext() {
+      const ms = msUntilNextTrigger();
+
+      timeoutId = setTimeout(async () => {
+        if (!alive) return;
+        await refreshIfNewDay();
+        if (!alive) return;
+        scheduleNext();
+      }, ms);
+
+      addTimer(timeoutId);
+    }
+
+    // exact trigger timer
+    scheduleNext();
+
+    // fallback polling
+    intervalId = setInterval(() => {
+      if (!alive) return;
+      refreshIfNewDay();
+    }, 30_000);
+    addTimer(intervalId);
+
+    return () => {
+      alive = false;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [uiMode]); // only depends on being in app mode
+
+  // detect added quests
   useEffect(() => {
     const nextIds = new Set((quests || []).map((q) => q.id));
     const prevIds = prevQuestIdsRef.current;
@@ -520,7 +688,7 @@ export default function App() {
     questsRef.current = quests || [];
   }, [quests]);
 
-  // detect added templates (animate in)
+  // detect added templates
   useEffect(() => {
     const nextIds = new Set((templates || []).map((t) => t._id));
     const prevIds = prevTemplateIdsRef.current;
@@ -551,14 +719,14 @@ export default function App() {
     templatesRef.current = templates || [];
   }, [templates]);
 
-  // when a popup opens, move the mouse-tracking target from the main page to the popup
+  // when a popup opens, move the mouse tracking target from the main page to the popup
   useEffect(() => {
     if (templatesOpen && templatesCardRef.current) {
       trackElRef.current = templatesCardRef.current;
       return;
     }
 
-    if (reward) {
+    if (reward || newDayNotice) {
       const raf = requestAnimationFrame(() => {
         const el = document.querySelector(".sys-card");
         trackElRef.current = el || pageRef.current;
@@ -567,9 +735,9 @@ export default function App() {
     }
 
     trackElRef.current = pageRef.current;
-  }, [templatesOpen, reward]);
+  }, [templatesOpen, reward, newDayNotice]);
 
-  // smooth cursor tracking -> CSS vars (--mx/--my)
+  // cursor tracking (--mx/--my)
   useEffect(() => {
     const fallbackEl = pageRef.current;
     if (!fallbackEl) return;
@@ -681,8 +849,6 @@ export default function App() {
             )}
           </div>
         ) : (
-          // IMPORTANT: this stage is the only thing that gets transform animations.
-          // Overlays/modals are rendered OUTSIDE of it so position:fixed stays truly full-screen.
           <div className={`appStage ${appAnim}`}>
             <div className="topbar">
               <div>
@@ -827,7 +993,7 @@ export default function App() {
 
                 <div style={{ marginTop: 18 }}>
                   <div className="subtle" style={{ marginBottom: 10 }}>
-                    Today’s Quests:
+                    Today's Quests:
                   </div>
 
                   {day && (
@@ -938,7 +1104,6 @@ export default function App() {
         )}
       </div>
 
-      {/* ======= OVERLAYS RENDER OUTSIDE appStage so position:fixed stays true ======= */}
       {templatesOpen && (
         <div className="sys-overlay" onClick={closeTemplates}>
           <div
@@ -996,6 +1161,17 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <SystemModal
+        open={newDayNotice}
+        title="A new day has begun"
+        highlight=""
+        suffix="."
+        lines={[]}
+        animClass={newDayAnim}
+        onAccept={refreshTab}
+        buttonText="Refresh"
+      />
 
       <SystemModal
         open={!!reward}

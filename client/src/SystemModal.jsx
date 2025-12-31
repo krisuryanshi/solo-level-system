@@ -1,4 +1,3 @@
-// SystemModal.jsx
 export default function SystemModal({
   open,
   title,
@@ -7,6 +6,7 @@ export default function SystemModal({
   lines = [],
   onAccept,
   animClass = "sys-open",
+  buttonText = "Accept rewards", 
 }) {
   if (!open) return null;
 
@@ -38,7 +38,7 @@ export default function SystemModal({
 
         <div className="sys-actions">
           <button className="sys-btn" onClick={onAccept}>
-            Accept rewards
+            {buttonText}
           </button>
         </div>
       </div>
