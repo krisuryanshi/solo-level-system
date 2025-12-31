@@ -73,6 +73,16 @@ export default function App() {
   const [error, setError] = useState("");
   const [templates, setTemplates] = useState([]);
 
+  //  animation state (doesn't change logic)
+  const [leavingQuestIds, setLeavingQuestIds] = useState(() => new Set());
+  const [leavingTemplateIds, setLeavingTemplateIds] = useState(() => new Set());
+  const [addedQuestIds, setAddedQuestIds] = useState(() => new Set());
+  const [addedTemplateIds, setAddedTemplateIds] = useState(() => new Set());
+  const prevQuestIdsRef = useRef(new Set());
+  const prevTemplateIdsRef = useRef(new Set());
+  const questsRef = useRef([]);
+  const templatesRef = useRef([]);
+
   // auth
   const [authUser, setAuthUser] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -164,6 +174,14 @@ export default function App() {
     setQuickType("");
     setQuickMinutes("");
     setQuickSaveAsTemplate(false);
+
+    //  reset animation trackers
+    setLeavingQuestIds(new Set());
+    setLeavingTemplateIds(new Set());
+    setAddedQuestIds(new Set());
+    setAddedTemplateIds(new Set());
+    prevQuestIdsRef.current = new Set();
+    prevTemplateIdsRef.current = new Set();
   }
 
   async function load() {
@@ -294,6 +312,14 @@ export default function App() {
     if (!ok) return;
 
     setError("");
+
+    //  play exit animation before removing from DOM
+    setLeavingQuestIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
     const res = await apiFetch(`/quests/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({}));
 
@@ -303,11 +329,24 @@ export default function App() {
     }
 
     if (!res.ok || !data.ok) {
+      setLeavingQuestIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       setError(data.message || "Could not delete quest");
       return;
     }
 
-    setQuests(data.quests || []);
+    // let the animation finish, then update list
+    setTimeout(() => {
+      setQuests(data.quests || []);
+      setLeavingQuestIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 180);
   }
 
   async function deleteTemplate(id, title) {
@@ -315,6 +354,14 @@ export default function App() {
     if (!ok) return;
 
     setError("");
+
+    //  play exit animation before removing from DOM
+    setLeavingTemplateIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
     const res = await apiFetch(`/templates/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({}));
 
@@ -324,11 +371,23 @@ export default function App() {
     }
 
     if (!res.ok || !data.ok) {
+      setLeavingTemplateIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       setError(data.message || "Could not delete template");
       return;
     }
 
-    setTemplates(data.templates || []);
+    setTimeout(() => {
+      setTemplates(data.templates || []);
+      setLeavingTemplateIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 180);
   }
 
   useEffect(() => {
@@ -340,6 +399,66 @@ export default function App() {
       loadTemplates();
     }
   }, []);
+
+  //  detect added quests (animate in)
+  useEffect(() => {
+    const nextIds = new Set((quests || []).map((q) => q.id));
+    const prevIds = prevQuestIdsRef.current;
+
+    const added = [];
+    nextIds.forEach((id) => {
+      if (!prevIds.has(id)) added.push(id);
+    });
+
+    if (added.length) {
+      setAddedQuestIds((prev) => {
+        const next = new Set(prev);
+        added.forEach((id) => next.add(id));
+        return next;
+      });
+
+      setTimeout(() => {
+        setAddedQuestIds((prev) => {
+          const next = new Set(prev);
+          added.forEach((id) => next.delete(id));
+          return next;
+        });
+      }, 260);
+    }
+
+    prevQuestIdsRef.current = nextIds;
+    questsRef.current = quests || [];
+  }, [quests]);
+
+  //  detect added templates (animate in)
+  useEffect(() => {
+    const nextIds = new Set((templates || []).map((t) => t._id));
+    const prevIds = prevTemplateIdsRef.current;
+
+    const added = [];
+    nextIds.forEach((id) => {
+      if (!prevIds.has(id)) added.push(id);
+    });
+
+    if (added.length) {
+      setAddedTemplateIds((prev) => {
+        const next = new Set(prev);
+        added.forEach((id) => next.add(id));
+        return next;
+      });
+
+      setTimeout(() => {
+        setAddedTemplateIds((prev) => {
+          const next = new Set(prev);
+          added.forEach((id) => next.delete(id));
+          return next;
+        });
+      }, 260);
+    }
+
+    prevTemplateIdsRef.current = nextIds;
+    templatesRef.current = templates || [];
+  }, [templates]);
 
   // when a popup opens, move the mouse-tracking target from the main page to the popup
   useEffect(() => {
@@ -527,7 +646,7 @@ export default function App() {
               {player ? (
                 <>
                   <div className="subtle" style={{ marginBottom: 10 }}>
-                    Stat Points: {player.statPoints}
+                    Available Points: {player.statPoints}
                   </div>
 
                   {["physical", "intellectual", "spiritual"].map((s) => (
@@ -572,7 +691,10 @@ export default function App() {
             <h2>QUEST BOARD</h2>
 
             <div className="subtle" style={{ marginBottom: 10 }}>
-              <div>Add quests, complete them, and earn XP to level up. Leveling up updates the UI and grants stat points that raise your max minutes by quest type.</div>
+              <div>
+                Add quests, complete them, and earn XP to level up. Leveling up updates the UI and grants stat points that
+                raise your max minutes by quest type.
+              </div>
             </div>
 
             <div className="hr" />
@@ -589,7 +711,7 @@ export default function App() {
                       className="input"
                       value={quickTitle}
                       onChange={(e) => setQuickTitle(e.target.value)}
-                      placeholder="Quest title (e.g., Hit legs, Math assignment, Prayer)"
+                      placeholder="Quest title (e.g., hit legs, CS assignment, pray)"
                     />
 
                     <select
@@ -643,7 +765,14 @@ export default function App() {
                 <div className="subtle">No quests left.</div>
               ) : (
                 visibleQuests.map((q) => (
-                  <div key={q.id} className="quest">
+                  <div
+                    key={q.id}
+                    className={[
+                      "quest",
+                      addedQuestIds.has(q.id) ? "quest-enter" : "",
+                      leavingQuestIds.has(q.id) ? "quest-exit" : "",
+                    ].join(" ")}
+                  >
                     <div>
                       <div className="questTitle">{q.title}</div>
                       <div className="questMeta">
@@ -681,7 +810,6 @@ export default function App() {
                   Sign in to view templates.
                 </div>
               )}
-
             </div>
           </div>
         </div>
@@ -692,7 +820,7 @@ export default function App() {
             <div
               onClick={(e) => e.stopPropagation()}
               ref={templatesCardRef}
-              className="sys-card bg-surface tmpl-card"
+              className="sys-card bg-surface tmpl-card sys-open"
               style={{
                 width: "min(760px, 100%)",
                 "--trackPopup": 1,
@@ -705,7 +833,6 @@ export default function App() {
                     Close
                   </button>
                 </div>
-
               </div>
 
               <div className="sys-body">
@@ -714,7 +841,14 @@ export default function App() {
                 ) : (
                   <div className="tmpl-list">
                     {templates.map((t) => (
-                      <div key={t._id} className="tmpl-item">
+                      <div
+                        key={t._id}
+                        className={[
+                          "tmpl-item",
+                          addedTemplateIds.has(t._id) ? "tmpl-enter" : "",
+                          leavingTemplateIds.has(t._id) ? "tmpl-exit" : "",
+                        ].join(" ")}
+                      >
                         <div>
                           <div className="tmpl-title">{t.title}</div>
                           <div className="tmpl-meta">

@@ -5,7 +5,7 @@ export default function SystemModal({ open, title, lines = [], onAccept }) {
     <div className="sys-overlay" onClick={onAccept}>
       {/* bg-surface so the level + cursor background can live on the popup */}
       <div
-        className="sys-card bg-surface"
+        className="sys-card sys-open bg-surface"
         style={{ "--trackPopup": 1 }}
         onClick={(e) => e.stopPropagation()}
       >
