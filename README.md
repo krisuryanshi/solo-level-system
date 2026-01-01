@@ -1,15 +1,10 @@
-# Solo Level System  
+# Solo Level System 🗡️  
 **A Personal Project Inspired by the *System* from [Solo Leveling](https://en.wikipedia.org/wiki/Solo_Leveling)**
 
 ---
 
-> **IMPORTANT**  
-> Please allow up to ~45 seconds on first login due to server cold start.
-
----
-
 ## Overview
-Solo Level System is a web application built to make daily work feel more structured. Each day starts fresh. Users add quests, complete them, gain XP, level up, and spend stat points. Stats directly affect how much time future quests are allowed to take.
+Solo Level System is a full-stack web application built to make daily work feel more structured. Each day starts fresh. Users add quests, complete them, gain XP, level up, and spend stat points. Stats directly affect how much time future quests are allowed to take.
 
 The app is designed around starting and finishing a day on purpose rather than keeping long running task lists.
 
@@ -103,17 +98,26 @@ Templates stay available across days and make setup faster.
 
 ---
 
-## Level Based UI Progression
-Visual changes unlock as the user levels up.
+## Level-Based UI Progression
+Visual changes unlock gradually as the user levels up rather than being available from the start.
 
-### Low Level UI (10+)
+### Low-Level UI (10+)
 ![Low level UI](./screenshots/ui-low-level.png)
 
-### Mid Level UI (20+)
+- Minimal effects and a static background  
+
+### Mid-Level UI (20+)
 ![Mid level UI](./screenshots/ui-mid-level.png)
 
-### High Level UI (30+)
+- Subtle background motion  
+- Increased visual depth  
+
+### High-Level UI (30+)
 ![High level UI](./screenshots/ui-high-level.png)
+
+- Dynamic background effects  
+- Cursor-based lighting that reacts to movement  
+- Visual feedback tied directly to progression  
 
 ---
 
@@ -197,4 +201,5 @@ solo-level-system/
 - Daily reset runs automatically at midnight Toronto time  
 - Quest time limits are calculated from stored stat values  
 - XP and stat updates are validated on the server  
+- Cursor-based effects activate only at higher levels  
 - Authentication tokens are stored client side and verified on each request  
