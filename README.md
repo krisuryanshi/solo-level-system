@@ -162,7 +162,57 @@ The interface evolves visually as the player levels up. Visual complexity is int
 
 ## Repository Structure
 ```
-
+solo-level-system/
+│
+├── client/                         # Frontend (Vite + React)
+│ │
+│ ├── public/                       # Static assets served directly
+│ │ └── favicon.png                 # App favicon
+│ │
+│ ├── src/                          # Frontend source code
+│ │ ├── App.jsx                     # Main application logic and state orchestration
+│ │ ├── App.css                     # Global styles + level-based visual effects
+│ │ ├── SystemModal.jsx             # System-style modal + notification overlays
+│ │ ├── index.css                   # Base resets and shared styles
+│ │ └── main.jsx                    # React entry point
+│ │
+│ ├── .gitignore                    # Client-specific ignores
+│ ├── eslint.config.js              # ESLint configuration
+│ ├── index.html                    # Vite HTML entry
+│ ├── package.json                  # Frontend dependencies and scripts
+│ ├── package-lock.json             # Frontend lockfile
+│ ├── README.md                     # Frontend notes (if applicable)
+│ └── vite.config.js                # Vite configuration
+│
+├── server/                         # Backend (Node + Express)
+│ │
+│ ├── middleware/                   # Request guards that run before routes
+│ │ └── auth.js                     # JWT authentication middleware
+│ │
+│ ├── models/                       # MongoDB schemas (Mongoose models)
+│ │ ├── Template.js                 # Quest template schema
+│ │ └── User.js                     # User schema (auth, stats, quests, progression)
+│ │
+│ ├── index.js                      # Express server, routes, and system logic
+│ ├── package.json                  # Backend dependencies and scripts
+│ └── package-lock.json             # Backend lockfile
+│
+├── screenshots/                    # README screenshots (UI states & feature demos)
+│ ├── auth.png                      # Login + register screen
+│ ├── day-not-started.png           # Dashboard before starting a day
+│ ├── day-started.png               # Dashboard after starting a day
+│ ├── quest-create.png              # Entering a quest + save-as-template option
+│ ├── quest-added.png               # Quest successfully added to the list
+│ ├── quest-complete.png            # Quest completion feedback (no level-up)
+│ ├── quest-complete-levelup.png    # Quest completion feedback with level-up
+│ ├── stats.png                     # Stat points allocation panel
+│ ├── templates.png                 # Templates panel
+│ ├── ui-low-level.png              # Low-level UI visuals (10+)
+│ ├── ui-mid-level.png              # Mid-level UI visuals (20+)
+│ └── ui-high-level.png             # High-level UI visuals (30+)
+│
+├── .gitignore                      # Root ignores
+└── README.md                       # Project documentation
 ```
 
 ---
