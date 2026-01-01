@@ -93,7 +93,7 @@ This instant response ties effort directly to progression and reinforces consist
 ## Leveling & Stat Allocation 📈
 XP fills a progress bar toward the next level. When a level is gained, stat points are awarded and can be allocated manually.
 
-**Stat points and allocation panel (bottom-left panel)**  
+**Stat points and allocation panel**  
 ![Stats panel](./screenshots/stats.png)
 
 Stats directly affect gameplay:
