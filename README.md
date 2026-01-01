@@ -32,7 +32,7 @@ Users create accounts using a username and password. Authentication is handled u
 **Auth form (Login + Register)**  
 ![Auth form](./screenshots/auth.png)
 
-Each account has its own progression data, templates, and daily history stored in MongoDB.
+Each account maintains its own progression data, templates, and daily history stored in MongoDB.
 
 ---
 
@@ -50,35 +50,33 @@ Before any quests can be added, the user must explicitly start their day.
 - At midnight (Toronto time), the system automatically rolls over  
 - Previous quests are cleared and a new day must be started  
 
-This structure encourages intentional daily planning rather than passive task accumulation.
+This structure enforces intentional daily planning rather than passive task accumulation.
 
 ---
 
 ## Core Dashboard: Quests, XP & Stats 🎯📈
-Once the day is active, the dashboard becomes fully interactive. Quest creation, XP tracking, and stat allocation all live within a single unified interface.
+Once the day is active, the dashboard becomes fully interactive. Quest creation, XP tracking, and stat visibility all live within a single unified interface.
 
-**Core dashboard (quests + XP + stats)**  
-![Core dashboard](./screenshots/dashboard-core.png)
+**Core dashboard (quest creation + XP + stats)**  
+![Core dashboard](./screenshots/quest-create.png)
 
 - Quests are created with a title, category, and duration  
-- Completing quests grants XP  
-- XP fills a progress bar toward the next level  
-- Stat points are awarded on level-up and allocated manually  
-
-Stats directly affect gameplay:
-
-- Higher stats increase the maximum allowable minutes for quests of that type  
-- This creates a feedback loop where growth unlocks higher effort ceilings  
+- Quests can optionally be saved as templates  
+- XP progress is always visible  
+- Stat totals are visible at all times  
 
 ---
 
 ## Quest Completion Feedback ✅
-When a quest is completed, the system provides immediate feedback summarizing the outcome.
+Completing a quest produces immediate system feedback summarizing the outcome.
 
-**Quest completion feedback**  
-![Quest completion feedback](./screenshots/quest-complete.png)
+**Quest completion (no level-up)**  
+![Quest completion](./screenshots/quest-complete.png)
 
-The feedback includes:
+**Quest completion with level-up**  
+![Quest completion with level-up](./screenshots/quest-complete-levelup.png)
+
+Feedback includes:
 - XP gained from the quest  
 - Any level-ups triggered  
 - Updated stat point totals when applicable  
@@ -87,15 +85,20 @@ This instant response ties effort directly to progression and reinforces consist
 
 ---
 
+## Leveling & Stat Allocation 📈
+XP fills a progress bar toward the next level. When a level is gained, stat points are awarded and can be allocated manually.
+
+**Stat points and allocation panel**  
+![Stats panel](./screenshots/stats.png)
+
+Stats directly affect gameplay:
+- Higher stats increase the maximum allowable minutes for quests of that type  
+- Growth unlocks higher effort ceilings rather than cosmetic-only rewards  
+
+---
+
 ## Level-Based UI Progression ✨
-The interface evolves visually as the player levels up. Visual effects are intentionally gated behind progression to mirror RPG-style power scaling.
-
-### Level 1 – Base System
-![Level 1 UI](./screenshots/ui-level-1.png)
-
-- Minimal visual effects  
-- Clean, subdued interface  
-- Focus on structure and clarity  
+The interface evolves visually as the player levels up. Visual complexity is intentionally gated behind progression.
 
 ### Mid-Level – System Awakening
 ![Mid-level UI](./screenshots/ui-mid-level.png)
@@ -147,52 +150,7 @@ Templates:
 
 ## Repository Structure
 ```
-solo-level-system/
-│
-├── client/                 # Frontend (Vite + React)
-│ │
-│ ├── public/               # Static assets served directly
-│ │ └── favicon.svg         # Application favicon
-│ │
-│ ├── src/
-│ │ ├── assets/             # UI images and visual assets
-│ │ │ └── (images, icons)
-│ │ │
-│ │ ├── App.jsx             # Main application logic and state flow
-│ │ ├── main.jsx            # React entry point and root render
-│ │ ├── App.css             # Global styles + level-based visual effects
-│ │ ├── index.css           # Base resets and shared styling
-│ │ ├── SystemModal.jsx     # System-style modal overlays
-│ │ │
-│ │ └── components/         # Reusable UI components
-│ │ ├── Account.jsx         # Account panel and logout logic
-│ │ ├── QuestBoard.jsx      # Quest creation and display logic
-│ │ ├── QuestItem.jsx       # Individual quest rendering
-│ │ ├── StatsPanel.jsx      # Stat allocation UI
-│ │ ├── Templates.jsx       # Template list and creation
-│ │ └── LevelDisplay.jsx    # XP bar and level visualization
-│ │
-│ ├── index.html            # Vite HTML entry
-│ ├── vite.config.js        # Vite configuration
-│ ├── package.json          # Frontend dependencies and scripts
-│ └── package-lock.json     # Dependency lockfile
-│
-├── server/                 # Backend (Node + Express)
-│ │
-│ ├── models/               # MongoDB schemas
-│ │ ├── User.js             # User model (auth, stats, quests, progression)
-│ │ └── Template.js         # Quest template model
-│ │
-│ ├── middleware/
-│ │ └── auth.js             # JWT authentication middleware
-│ │
-│ ├── index.js              # Express server, routes, game logic
-│ ├── package.json          # Backend dependencies and scripts
-│ ├── package-lock.json     # Dependency lockfile
-│ └── .env.example          # Environment variable template
-│
-├── .gitignore              # Prevents secrets and build artifacts
-└── README.md               # Project documentation
+...
 ```
 
 ---
