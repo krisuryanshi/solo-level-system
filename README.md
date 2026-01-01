@@ -1,5 +1,5 @@
 # Solo Level System ⚔️  
-**A Personal Project Inspired by the *System* from [Solo Leveling](https://en.wikipedia.org/wiki/Solo_Leveling)**
+**Personal Project Inspired by the *System* from [Solo Leveling](https://en.wikipedia.org/wiki/Solo_Leveling)**
 
 ---
 
