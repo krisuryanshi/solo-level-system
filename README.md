@@ -3,17 +3,16 @@
 
 ---
 
+> ⭐ **Quick Note:** The backend may take a few seconds to respond on the first request due to cold starts on the hosting provider. After the initial wake-up, logins and API calls should feel normal.
+
+---
+
 ## Overview
 Solo Level System is a full-stack web application that turns daily work and habits into a progression-based system. Users start each day, complete quests across different categories, earn experience points, level up, and allocate stat points that directly affect how the system behaves.
 
 Rather than tracking productivity passively, the app frames each day as an active run, where consistency and effort are rewarded through visible growth and evolving UI feedback.
 
 The project was built end-to-end, including authentication, persistence, progression logic, and deployment.
-
----
-
-## Quick Note
-- The backend may take a few seconds to respond on the first request due to cold starts on the hosting provider. After the initial wake-up, logins and API calls should feel normal.
 
 ---
 
