@@ -1,8 +1,6 @@
 # Solo Level System 🗡️  
 **A Personal Project Inspired by the *System* from [Solo Leveling](https://en.wikipedia.org/wiki/Solo_Leveling)**
 
----
-
 ## Overview
 Solo Level System is a full-stack web application built to make daily work feel more structured. Each day starts fresh. Users add quests, complete them, gain XP, level up, and spend stat points. Stats directly affect how much time future quests are allowed to take.
 
