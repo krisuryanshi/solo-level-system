@@ -1,5 +1,5 @@
 # Solo Level System ⚔️  
-**A gamified daily productivity system inspired by *The System* from [Solo Leveling](https://en.wikipedia.org/wiki/Solo_Leveling)**
+## **A Daily Progression Experience Inspired by the *System* from [Solo Leveling](https://en.wikipedia.org/wiki/Solo_Leveling)**
 
 ---
 
