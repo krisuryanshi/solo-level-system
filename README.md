@@ -3,7 +3,8 @@
 
 ---
 
-> ⭐ **Quick Note:** The backend may take a few seconds to respond on the first request due to cold starts on the hosting provider. After the initial wake-up, logins and API calls should feel normal.
+> 🚨 **Important**  
+> First login can take up to a minute due to server cold start.
 
 ---
 
