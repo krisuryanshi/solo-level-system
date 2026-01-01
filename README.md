@@ -162,7 +162,7 @@ The interface evolves visually as the player levels up. Visual complexity is int
 
 ## Repository Structure
 ```
-...
+
 ```
 
 ---
