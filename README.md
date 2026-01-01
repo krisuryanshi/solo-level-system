@@ -78,7 +78,7 @@ Completing a quest produces immediate system feedback summarizing the outcome.
 **Quest completion (no level-up)**  
 ![Quest completion](./screenshots/quest-complete.png)
 
-**Quest completion with level-up**  
+**Quest completion (with level-up)**  
 ![Quest completion with level-up](./screenshots/quest-complete-levelup.png)
 
 Feedback includes:
