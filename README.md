@@ -12,6 +12,11 @@ The project was built end-to-end, including authentication, persistence, progres
 
 ---
 
+## Quick Note
+- The backend may take a few seconds to respond on the first request due to cold starts on the hosting provider. After the initial wake-up, logins and API calls should feel normal.
+
+---
+
 ## Core Concept
 The system is built around a few core ideas:
 
