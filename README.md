@@ -3,7 +3,8 @@
 
 ---
 
-> 🚨 Please allow up to ~45 seconds on first login due to server cold start.
+> 🚨 **IMPORTANT**  
+> Please allow up to ~45 seconds on first login due to server cold start.
 
 ---
 
