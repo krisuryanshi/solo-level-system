@@ -29,59 +29,41 @@ Progression is not only numerical. As users level up, the interface itself becom
 ## Authentication & Accounts 🔐
 Users create accounts using a username and password. Authentication is handled using JSON Web Tokens and persists across sessions.
 
-**Login screen**  
-![Login screen](<PASTE LOGIN SCREENSHOT URL HERE>)
-
-**Register screen**  
-![Register screen](<PASTE REGISTER SCREENSHOT URL HERE>)
+**Auth form (Login + Register)**  
+![Auth form](./screenshots/auth.png)
 
 Each account has its own progression data, templates, and daily history stored in MongoDB.
 
 ---
 
 ## Daily System 🗓️
-Before any quests can be added, the user must start their day.
+Before any quests can be added, the user must explicitly start their day.
 
-**Before starting a day**  
-![Start day prompt](<PASTE START DAY SCREENSHOT URL HERE>)
+**Day not started**  
+![Day not started](./screenshots/day-not-started.png)
 
-**After starting a day**  
-![Active day dashboard](<PASTE ACTIVE DAY SCREENSHOT URL HERE>)
+**Day started (active dashboard)**  
+![Day started](./screenshots/day-started.png)
 
 - A day can only be started once  
-- Quests belong to a specific day  
+- Quests are scoped to a single day  
 - At midnight (Toronto time), the system automatically rolls over  
 - Previous quests are cleared and a new day must be started  
 
-This structure encourages intentional daily planning rather than unchecked task accumulation.
+This structure encourages intentional daily planning rather than passive task accumulation.
 
 ---
 
-## Quests & XP 🎯
-Users can add quests in three categories:
+## Core Dashboard: Quests, XP & Stats 🎯📈
+Once the day is active, the dashboard becomes fully interactive. Quest creation, XP tracking, and stat allocation all live within a single unified interface.
 
-- Physical  
-- Intellectual  
-- Spiritual  
+**Core dashboard (quests + XP + stats)**  
+![Core dashboard](./screenshots/dashboard-core.png)
 
-Each quest has a duration (in minutes). Completing a quest grants XP based on its type and length.
-
-**Quest creation and active quest list**  
-![Quest list](<PASTE QUEST LIST SCREENSHOT URL HERE>)
-
-XP is awarded only when quests are completed, reinforcing follow-through rather than intent.
-
----
-
-## Leveling & Stats 📈
-XP fills a progress bar toward the next level. When a level is gained:
-
-- XP carries over  
-- Stat points are awarded  
-- Stats can be allocated manually  
-
-**Level and stat allocation panel**  
-![Stats panel](<PASTE STATS SCREENSHOT URL HERE>)
+- Quests are created with a title, category, and duration  
+- Completing quests grants XP  
+- XP fills a progress bar toward the next level  
+- Stat points are awarded on level-up and allocated manually  
 
 Stats directly affect gameplay:
 
@@ -90,25 +72,40 @@ Stats directly affect gameplay:
 
 ---
 
+## Quest Completion Feedback ✅
+When a quest is completed, the system provides immediate feedback summarizing the outcome.
+
+**Quest completion feedback**  
+![Quest completion feedback](./screenshots/quest-complete.png)
+
+The feedback includes:
+- XP gained from the quest  
+- Any level-ups triggered  
+- Updated stat point totals when applicable  
+
+This instant response ties effort directly to progression and reinforces consistent completion.
+
+---
+
 ## Level-Based UI Progression ✨
-The interface evolves as the player levels up. Visual effects are intentionally gated behind progression to mirror RPG-style power scaling.
+The interface evolves visually as the player levels up. Visual effects are intentionally gated behind progression to mirror RPG-style power scaling.
 
 ### Level 1 – Base System
-![Level 1 UI](<PASTE LEVEL 1 SCREENSHOT URL HERE>)
+![Level 1 UI](./screenshots/ui-level-1.png)
 
 - Minimal visual effects  
 - Clean, subdued interface  
 - Focus on structure and clarity  
 
 ### Mid-Level – System Awakening
-![Mid-level UI](<PASTE MID LEVEL SCREENSHOT URL HERE>)
+![Mid-level UI](./screenshots/ui-mid-level.png)
 
 - Subtle background motion  
 - Increased visual depth  
 - UI begins to feel more reactive  
 
 ### High-Level (20+) – Full System Mode
-![High-level UI](<PASTE HIGH LEVEL SCREENSHOT URL HERE>)
+![High-level UI](./screenshots/ui-high-level.png)
 
 - Dynamic background effects  
 - Cursor-based lighting  
@@ -117,16 +114,15 @@ The interface evolves as the player levels up. Visual effects are intentionally 
 ---
 
 ## Templates System 📋
-Frequently repeated quests can be saved as templates.
+Frequently repeated quests can be saved as templates to speed up daily setup.
 
 **Templates panel**  
-![Templates panel](<PASTE TEMPLATES SCREENSHOT URL HERE>)
+![Templates panel](./screenshots/templates.png)
 
 Templates:
-
 - Persist across days  
-- Speed up daily setup  
-- Can be used directly to generate quests with preset values  
+- Allow quick quest creation with preset values  
+- Reduce repetitive setup while keeping daily intent explicit  
 
 ---
 
