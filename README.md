@@ -107,7 +107,7 @@ The interface evolves visually as the player levels up. Visual complexity is int
 - Increased visual depth  
 - UI begins to feel more reactive  
 
-### High-Level (20+) – Full System Mode
+### High-Level (30+) – Full System Mode
 ![High-level UI](./screenshots/ui-high-level.png)
 
 - Dynamic background effects  
