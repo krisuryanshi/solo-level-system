@@ -3,8 +3,8 @@
 
 ---
 
-> 🚨 **Important**  
-> First login can take up to a minute due to server cold start.
+> 🚨 **IMPORTANT**  
+> First login may take ~30–60 seconds due to server cold start.
 
 ---
 
